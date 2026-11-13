@@ -1,2 +1,5 @@
-def main() -> None:
-    print("Hello from strawberry-cli!")
+"""Strawberry CLI package."""
+
+from .main import main
+
+__all__ = ["main"]

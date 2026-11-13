@@ -1,12 +1,12 @@
 [project]
 name = "strawberry-cli"
 version = "0.1.0"
-description = "Add your description here"
+description = "Standalone Windows CLI-Based Laboratory Program Retrieval System"
 readme = "README.md"
 authors = [
-    { name = "Kittyboy06", email = "afsalahmed2006@gmail.com" }
+    { name = "Strawberry Team" }
 ]
-requires-python = ">=3.13"
+requires-python = ">=3.11"
 dependencies = [
     "httpx>=0.28.1",
     "pydantic>=2.14.3",
@@ -16,7 +16,8 @@ dependencies = [
 ]
 
 [project.scripts]
-strawberry-cli = "strawberry_cli:main"
+strawberry = "strawberry_cli.main:main"
+strawberry-cli = "strawberry_cli.main:main"
 
 [build-system]
 requires = ["uv_build>=0.13.7,<0.14.0"]
