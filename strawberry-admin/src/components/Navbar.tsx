@@ -25,7 +25,7 @@ export const Navbar: React.FC = () => {
           ) : (
             <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-md">
               <AlertCircle className="w-4 h-4" />
-              <span>Local Demo Mode (Add VITE_SUPABASE_URL to connect)</span>
+              <span>Local Demo Mode (Add Supabase URL & Publishable Key to connect)</span>
             </div>
           )}
         </div>

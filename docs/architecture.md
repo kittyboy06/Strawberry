@@ -41,7 +41,7 @@ The system consists of:
 ## 3. Assumptions & Policies
 
 1. **Phased Milestone Delivery:** Milestone 1 focuses on the Core Engine, Lite CLI, 7s Countdown Handler, Silent Focus-Aware ALT Hook, Local SQLite Storage, Cache Downloader, Windows Startup Background Sync Daemon, and the Admin Web App. (Strawberry Pro Textual TUI and Inno Setup installer are Milestone 2).
-2. **Security Model:** Students use public/anonymous Supabase credentials restricted to read-only RLS policies. Faculty log in via Supabase Auth. No administrator or service-role keys are ever packaged into the client executable.
+2. **Security Model:** Students use public Supabase **Publishable Keys** (`sb_publishable_...`) restricted to read-only RLS policies. Faculty log in via Supabase Auth or use **Secret Keys** (`sb_secret_...`) for administrative workflows. No privileged secret keys are ever packaged into the client executable.
 3. **Clipboard Management:** Clipboard operations use UTF-8 encoding with Windows CRLF preservation. If the OS denies clipboard access, the CLI outputs a clean message with the exact local file path.
 4. **Seed Database:** The client ships with a bundled SQLite seed database so it is 100% operational immediately upon installation even if the first run occurs without an internet connection.
 

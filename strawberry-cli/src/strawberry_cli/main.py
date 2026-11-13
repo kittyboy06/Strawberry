@@ -6,6 +6,7 @@ import typer
 from strawberry_cli.core.config import config
 from strawberry_cli.core.keyboard_controller import keyboard_controller
 from strawberry_cli.lite.workflow import start_lite
+from strawberry_cli.pro.app import start_pro
 from strawberry_cli.services.daemon import (
     run_daemon, 
     register_windows_startup, 
@@ -57,10 +58,12 @@ def lite_command():
 
 @app.command(name="pro", help="Launch the advanced Strawberry Pro interactive TUI.")
 def pro_command():
-    sys.stdout.write("\n\033[91m🍓 STRAWBERRY PRO\033[0m\n")
-    sys.stdout.write("Strawberry Pro Textual TUI is scheduled for Milestone 2.\n")
-    sys.stdout.write("Redirecting to Strawberry Lite...\n\n")
-    lite_command()
+    ensure_background_services()
+    keyboard_controller.start()
+    try:
+        start_pro()
+    finally:
+        keyboard_controller.stop()
 
 
 @app.command(name="daemon", help="Run the background synchronization daemon.")

@@ -3,7 +3,34 @@
 import os
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+
+
+def _load_environment() -> None:
+    """Discovers and loads .env files from project root, working dir, or LocalAppData."""
+    app_data = (
+        Path(os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local"))
+        / "Strawberry"
+        if sys.platform == "win32"
+        else Path.home() / ".strawberry"
+    )
+
+    # Search candidates in priority order
+    candidates = [
+        Path.cwd() / ".env",
+        Path(__file__).resolve().parents[4] / ".env",  # Workspace root
+        Path(__file__).resolve().parents[3] / ".env",  # strawberry-cli root
+        app_data / ".env",
+    ]
+
+    for candidate in candidates:
+        if candidate.is_file():
+            load_dotenv(candidate, override=False)
+
+
+# Initialize environment on module import
+_load_environment()
 
 
 class StrawberryConfig(BaseModel):
@@ -14,9 +41,15 @@ class StrawberryConfig(BaseModel):
     tagline: str = "Pick your program. Paste your code."
 
     # Timeout settings
-    input_timeout_seconds: float = 7.0
-    network_timeout_seconds: float = 10.0
-    daemon_poll_interval_seconds: int = 240  # 4 minutes
+    input_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("STRAWBERRY_INPUT_TIMEOUT_SECONDS", "7.0"))
+    )
+    network_timeout_seconds: float = Field(
+        default_factory=lambda: float(os.getenv("STRAWBERRY_NETWORK_TIMEOUT_SECONDS", "10.0"))
+    )
+    daemon_poll_interval_seconds: int = Field(
+        default_factory=lambda: int(os.getenv("STRAWBERRY_DAEMON_POLL_INTERVAL_SECONDS", "240"))
+    )
 
     # Local storage paths
     local_app_data: Path = Field(
@@ -28,9 +61,34 @@ class StrawberryConfig(BaseModel):
         )
     )
 
-    # Supabase remote configuration (defaults to mock/demo if empty)
-    supabase_url: str = os.getenv("STRAWBERRY_SUPABASE_URL", "")
-    supabase_anon_key: str = os.getenv("STRAWBERRY_SUPABASE_ANON_KEY", "")
+    # Supabase remote configuration (Modern publishable & secret keys, with legacy anon fallback)
+    supabase_url: str = Field(
+        default_factory=lambda: (
+            os.getenv("STRAWBERRY_SUPABASE_URL")
+            or os.getenv("VITE_SUPABASE_URL")
+            or ""
+        )
+    )
+    supabase_publishable_key: str = Field(
+        default_factory=lambda: (
+            os.getenv("STRAWBERRY_SUPABASE_PUBLISHABLE_KEY")
+            or os.getenv("VITE_SUPABASE_PUBLISHABLE_KEY")
+            or os.getenv("STRAWBERRY_SUPABASE_ANON_KEY")
+            or os.getenv("VITE_SUPABASE_ANON_KEY")
+            or ""
+        )
+    )
+    supabase_secret_key: str = Field(
+        default_factory=lambda: (
+            os.getenv("STRAWBERRY_SUPABASE_SECRET_KEY")
+            or ""
+        )
+    )
+
+    @property
+    def supabase_anon_key(self) -> str:
+        """Alias for publishable key to maintain backward compatibility."""
+        return self.supabase_publishable_key
 
     @property
     def database_path(self) -> Path:

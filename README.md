@@ -189,30 +189,27 @@ npm run build
 2. Open the **SQL Editor** in your Supabase dashboard.
 3. Run the schema migration script located at [`supabase/migrations/001_initial_schema.sql`](file:///e:/Projects/Works/Strawberry/supabase/migrations/001_initial_schema.sql).
 4. Run the seed data script located at [`supabase/seed.sql`](file:///e:/Projects/Works/Strawberry/supabase/seed.sql).
-5. Copy your **Project URL** and **Anon Public Key** from `Settings -> API`.
+5. Copy your **Project URL** and **Publishable Key** (`sb_publishable_...`) from `Settings -> API Keys`.
 
 ---
 
 ## 🔐 Environment Variables
 
-### CLI Configuration (`strawberry-cli`)
+Strawberry supports Supabase's modern **Publishable Key** and **Secret Key** API model (with automatic fallback to legacy keys).
 
-Configuration can be set via system environment variables:
+### Unified Root Configuration (`.env`)
 
-| Variable | Description | Default |
+You can create a single `.env` at the repository root to configure both the Python CLI and the React Admin portal simultaneously:
+
+| Variable | Description | Example / Default |
 | :--- | :--- | :--- |
-| `STRAWBERRY_SUPABASE_URL` | Supabase Project URL for remote sync | `""` (Uses local demo catalog) |
-| `STRAWBERRY_SUPABASE_ANON_KEY` | Public anonymous read key | `""` |
-| `LOCALAPPDATA` | Windows Local AppData directory | `%USERPROFILE%\AppData\Local` |
+| `STRAWBERRY_SUPABASE_URL` | Supabase Project URL | `https://your-project.supabase.co` |
+| `STRAWBERRY_SUPABASE_PUBLISHABLE_KEY` | Public client API key (`sb_publishable_...`) | `sb_publishable_...` |
+| `STRAWBERRY_SUPABASE_SECRET_KEY` | Privileged backend API key (`sb_secret_...`) | `sb_secret_...` |
+| `STRAWBERRY_INPUT_TIMEOUT_SECONDS` | CLI input countdown duration per prompt | `7.0` |
+| `STRAWBERRY_DAEMON_POLL_INTERVAL_SECONDS`| Background sync polling interval (seconds) | `240` |
 
-### Admin Web App (`strawberry-admin/.env`)
-
-Create a `.env` file inside `strawberry-admin/`:
-
-```env
-VITE_SUPABASE_URL=https://your-project.supabase.co
-VITE_SUPABASE_ANON_KEY=eyJhbGciOi...
-```
+*Vite-prefixed aliases (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) and legacy keys (`STRAWBERRY_SUPABASE_ANON_KEY`) are also fully supported.*
 
 *Note: If no Supabase credentials are provided, both the CLI and the Admin Web App run in complete offline demonstration mode with built-in curriculum data.*
 

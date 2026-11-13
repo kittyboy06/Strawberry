@@ -17,11 +17,11 @@ class SupabaseSyncService:
     def __init__(self, repo: Optional[SQLiteCatalogRepository] = None):
         self.repo = repo or SQLiteCatalogRepository()
         self.supabase_url = config.supabase_url.rstrip("/")
-        self.anon_key = config.supabase_anon_key
+        self.publishable_key = config.supabase_publishable_key
 
     def is_configured(self) -> bool:
         """Checks if remote Supabase credentials are configured."""
-        return bool(self.supabase_url and self.anon_key)
+        return bool(self.supabase_url and self.publishable_key)
 
     def is_online(self) -> bool:
         """Fast connectivity check with bounded timeout."""
@@ -36,8 +36,8 @@ class SupabaseSyncService:
 
     def _get_headers(self) -> dict[str, str]:
         return {
-            "apikey": self.anon_key,
-            "Authorization": f"Bearer {self.anon_key}",
+            "apikey": self.publishable_key,
+            "Authorization": f"Bearer {self.publishable_key}",
             "Content-Type": "application/json",
         }
 
