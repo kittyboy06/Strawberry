@@ -86,6 +86,14 @@ class StrawberryConfig(BaseModel):
     )
 
     @property
+    def base_supabase_url(self) -> str:
+        """Normalized base Supabase URL stripped of trailing slashes and /rest/v1 paths."""
+        url = self.supabase_url.strip().rstrip("/")
+        if url.endswith("/rest/v1"):
+            url = url[:-len("/rest/v1")].rstrip("/")
+        return url
+
+    @property
     def supabase_anon_key(self) -> str:
         """Alias for publishable key to maintain backward compatibility."""
         return self.supabase_publishable_key

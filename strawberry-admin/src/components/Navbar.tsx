@@ -1,34 +1,72 @@
 import React from 'react';
-import { ShieldCheck, AlertCircle } from 'lucide-react';
+import { Database, Calendar, Shield, Download, Plus } from 'lucide-react';
 import { isSupabaseConfigured } from '../lib/supabase';
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onNewSubject: () => void;
+  onExportManifest: () => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({ onNewSubject, onExportManifest }) => {
   return (
-    <header className="border-b border-slate-800 bg-slate-900/60 backdrop-blur sticky top-0 z-40">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="text-2xl">🍓</span>
-          <div>
-            <h1 className="text-lg font-bold text-white tracking-tight flex items-center gap-2">
-              Strawberry <span className="text-xs bg-rose-500/20 text-rose-400 border border-rose-500/30 px-2 py-0.5 rounded-full font-medium">Faculty Admin</span>
-            </h1>
-            <p className="text-xs text-slate-400">Department Laboratory Program Catalog</p>
-          </div>
+    <header className="bg-[#051424] border-b border-[#273647] flex justify-between items-center w-full px-5 h-14 shrink-0 z-30 select-none">
+      {/* Brand & Telemetry */}
+      <div className="flex items-center space-x-4">
+        <div className="flex items-center gap-2.5">
+          <div className="w-2.5 h-2.5 bg-[#f43f5e] rounded-xs shadow-[0_0_8px_rgba(244,63,94,0.4)]" />
+          <span className="font-mono text-xs tracking-wider font-bold text-white flex items-center gap-1.5">
+            STRAWBERRY <span className="text-[#f43f5e] font-semibold">//</span> REGISTRY
+          </span>
         </div>
 
-        <div className="flex items-center gap-4">
+        <div className="h-3.5 w-[1px] bg-[#273647]" />
+
+        <div className="flex items-center gap-1.5 bg-[#0d1c2d] border border-[#273647] px-2.5 py-1 rounded-xs text-[11px] font-mono text-[#bec6e0]">
+          <Calendar className="w-3 h-3 text-[#94a3b8]" />
+          <span>AY 2026-27</span>
+        </div>
+
+        <div className="flex items-center gap-2 bg-[#0d1c2d] border border-[#273647] px-2.5 py-1 rounded-xs text-[11px] font-mono">
           {isSupabaseConfigured ? (
-            <div className="flex items-center gap-2 text-xs text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-3 py-1.5 rounded-md">
-              <ShieldCheck className="w-4 h-4" />
-              <span>Supabase Connected</span>
-            </div>
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#10b981] animate-pulse" />
+              <span className="text-[#10b981] font-medium flex items-center gap-1">
+                <Database className="w-3 h-3 text-[#10b981]" />
+                DB_LIVE
+              </span>
+            </>
           ) : (
-            <div className="flex items-center gap-2 text-xs text-amber-400 bg-amber-500/10 border border-amber-500/20 px-3 py-1.5 rounded-md">
-              <AlertCircle className="w-4 h-4" />
-              <span>Local Demo Mode (Add Supabase URL & Publishable Key to connect)</span>
-            </div>
+            <>
+              <span className="w-1.5 h-1.5 rounded-full bg-[#f59e0b]" />
+              <span className="text-[#f59e0b] font-medium">LOCAL_STANDALONE</span>
+            </>
           )}
         </div>
+      </div>
+
+      {/* Operator Status & Actions */}
+      <div className="flex items-center space-x-3">
+        <div className="hidden sm:flex items-center gap-1.5 bg-[#0d1c2d] px-2.5 py-1 rounded-xs border border-[#273647] text-[11px] font-mono text-[#bec6e0]">
+          <Shield className="w-3 h-3 text-[#f43f5e]" />
+          <span>FACULTY_CONTROL_PLANE</span>
+        </div>
+
+        <button
+          onClick={onExportManifest}
+          className="bg-[#122131] hover:bg-[#1c2b3c] active:translate-y-[0.5px] border border-[#273647] text-[#d4e4fa] px-3 py-1 rounded-xs text-[11px] font-mono transition-colors flex items-center gap-1.5 cursor-pointer"
+          title="Export JSON manifest of all registered programs and SHA-256 hashes"
+        >
+          <Download className="w-3 h-3 text-[#94a3b8]" />
+          <span>EXPORT_MANIFEST</span>
+        </button>
+
+        <button
+          onClick={onNewSubject}
+          className="bg-[#f43f5e] hover:bg-[#e11d48] active:translate-y-[0.5px] text-[#051424] font-bold px-3 py-1 rounded-xs text-[11px] font-mono transition-colors flex items-center gap-1.5 shadow-sm cursor-pointer"
+        >
+          <Plus className="w-3.5 h-3.5" />
+          <span>NEW_SUBJECT</span>
+        </button>
       </div>
     </header>
   );

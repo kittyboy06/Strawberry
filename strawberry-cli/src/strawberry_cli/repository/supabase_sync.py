@@ -16,7 +16,7 @@ class SupabaseSyncService:
 
     def __init__(self, repo: Optional[SQLiteCatalogRepository] = None):
         self.repo = repo or SQLiteCatalogRepository()
-        self.supabase_url = config.supabase_url.rstrip("/")
+        self.supabase_url = config.base_supabase_url
         self.publishable_key = config.supabase_publishable_key
 
     def is_configured(self) -> bool:
@@ -99,8 +99,14 @@ class SupabaseSyncService:
                     # Check if file already cached and valid
                     if not cache_service.verify_integrity(filename, expected_sha):
                         # Download from Supabase Storage public URL
-                        storage_url = f"{self.supabase_url}/storage/v1/object/public/{storage_path}"
+                        # Try primary path: bucket 'programs' + storage_path
+                        storage_url = f"{self.supabase_url}/storage/v1/object/public/programs/{storage_path}"
                         file_res = client.get(storage_url, headers=headers)
+                        if file_res.status_code != 200:
+                            # Fallback: direct path as bucket/object
+                            fallback_url = f"{self.supabase_url}/storage/v1/object/public/{storage_path}"
+                            file_res = client.get(fallback_url, headers=headers)
+
                         if file_res.status_code == 200:
                             cache_service.save_file(filename, file_res.content, expected_sha)
                             files_downloaded += 1

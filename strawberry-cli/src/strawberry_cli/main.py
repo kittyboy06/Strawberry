@@ -1,6 +1,19 @@
 """Strawberry CLI application entry point and command routing."""
 
 import sys
+
+# Ensure UTF-8 output and error encoding across Windows consoles
+if hasattr(sys.stdout, "reconfigure"):
+    try:
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+if hasattr(sys.stderr, "reconfigure"):
+    try:
+        sys.stderr.reconfigure(encoding="utf-8", errors="replace")
+    except Exception:
+        pass
+
 from typing import Optional
 import typer
 from strawberry_cli.core.config import config
