@@ -38,9 +38,10 @@ With Strawberry, students open their terminal, make three quick selections, and 
 * **Direct Clipboard Integration:** Automatically copies code to the Windows clipboard with full UTF-8 and native Windows CRLF line-ending preservation.
 * **SHA-256 Integrity Verification:** Every retrieved program is checked against its cryptographic hash before copying to ensure zero corruption or tampering.
 
-### 🔄 Offline-First & Background Sync
+### 🔄 Offline-First & Background Sync (Default on Install)
 * **100% Disconnected Operation:** Local SQLite database (`catalog.db`) and file cache (`cache/`) stored in `%LOCALAPPDATA%\Strawberry\`. Works inside firewalled or offline college lab rooms.
-* **Windows Startup Daemon:** Background worker (`strawberry daemon`) registers in Windows Startup (`shell:startup`) and checks for network connectivity every 3–5 minutes, silently pre-caching the entire department catalog and code files.
+* **Automatic Setup by Default:** Configured automatically upon installation! Strawberry registers a headless VBScript launcher in Windows Startup (`shell:startup`) and launches the background sync daemon without requiring any manual user setup.
+* **Continuous Background Sync:** The background daemon polls for internet access every 3–5 minutes and silently pre-caches the full catalog and all source code files with single-instance mutex protection.
 
 ### 👩‍🏫 Faculty Admin Web App
 * **Curriculum Management:** Clean web interface for faculty to organize academic years, semesters, and subjects.
@@ -380,12 +381,12 @@ uv run pyinstaller --onefile --name strawberry src/strawberry_cli/main.py
 ```
 The output binary will be generated at `strawberry-cli/dist/strawberry.exe`.
 
-### Windows Startup Registration
-To enable automatic background synchronization on login:
-```bash
-strawberry install-startup
-```
-This registers a background VBScript launcher in `%APPDATA%\Microsoft\Windows\Start Menu\Programs\Startup\StrawberryDaemon.vbs` which silently invokes `strawberry daemon` using `pythonw.exe` without creating a console window.
+### Windows Installer (`Strawberry_Setup.exe`)
+The complete Windows installation package is defined in [`installer/strawberry.iss`](file:///e:/Projects/Works/Strawberry/installer/strawberry.iss) and compiled via Inno Setup:
+1. **Per-User Installation:** Installs into `%LOCALAPPDATA%\Strawberry\bin` with zero administrative UAC prompts.
+2. **Automatic PATH Registration:** Adds Strawberry to the current user's `PATH` environment variable so opening any Command Prompt or PowerShell and typing `strawberry` works instantly.
+3. **Default Background Sync & Startup:** The installer automatically configures `StrawberryDaemon.vbs` in Windows Startup and immediately launches the background sync worker.
+4. **Clean Uninstallation:** Shuts down active background processes, unregisters the startup runner, and cleanly removes only Strawberry-owned PATH entries.
 
 ### Deploying the Admin Portal
 The `strawberry-admin` Vite app can be deployed in one click to [Vercel](https://vercel.com), [Netlify](https://netlify.com), or [Cloudflare Pages]:

@@ -6,7 +6,11 @@ import typer
 from strawberry_cli.core.config import config
 from strawberry_cli.core.keyboard_controller import keyboard_controller
 from strawberry_cli.lite.workflow import start_lite
-from strawberry_cli.services.daemon import run_daemon, register_windows_startup
+from strawberry_cli.services.daemon import (
+    run_daemon, 
+    register_windows_startup, 
+    ensure_background_services,
+)
 from strawberry_cli.repository.supabase_sync import supabase_sync
 
 app = typer.Typer(
@@ -31,6 +35,8 @@ def default_action(
 ):
     """Launches Strawberry Lite by default if no subcommand is specified."""
     if ctx.invoked_subcommand is None:
+        # Silently ensure startup registration and background daemon are active by default
+        ensure_background_services()
         # Start the focus-aware silent ALT emergency kill-switch
         keyboard_controller.start()
         try:
@@ -41,6 +47,7 @@ def default_action(
 
 @app.command(name="lite", help="Launch the guided Strawberry Lite terminal interface.")
 def lite_command():
+    ensure_background_services()
     keyboard_controller.start()
     try:
         start_lite()
