@@ -28,6 +28,35 @@ class KeyboardController:
         self._combo_detected: bool = False
         self._hook_proc_ref = None  # Prevent garbage collection of callback
 
+    def handle_key_event(self, wparam: int, vk_code: int, is_focused: bool) -> bool:
+        """Evaluates Win32 low-level keyboard events and returns True on standalone ALT release."""
+        WM_KEYDOWN = 0x0100
+        WM_KEYUP = 0x0101
+        WM_SYSKEYDOWN = 0x0104
+        WM_SYSKEYUP = 0x0105
+
+        VK_MENU = 0x12
+        VK_LMENU = 0xA4
+        VK_RMENU = 0xA5
+        is_alt = vk_code in (VK_MENU, VK_LMENU, VK_RMENU)
+
+        if wparam in (WM_KEYDOWN, WM_SYSKEYDOWN):
+            if is_alt:
+                if is_focused:
+                    self._alt_pressed = True
+                    self._combo_detected = False
+            elif self._alt_pressed:
+                self._combo_detected = True
+            return False
+
+        if wparam in (WM_KEYUP, WM_SYSKEYUP) and is_alt:
+            should_exit = self._alt_pressed and not self._combo_detected and is_focused
+            self._alt_pressed = False
+            self._combo_detected = False
+            return should_exit
+
+        return False
+
     def start(self) -> None:
         """Starts the low-level keyboard listener thread on Windows."""
         if sys.platform != "win32" or ctypes is None:
@@ -90,32 +119,14 @@ class KeyboardController:
             def low_level_keyboard_proc(nCode, wParam, lParam):
                 if nCode >= 0:
                     kb = ctypes.cast(lParam, ctypes.POINTER(KBDLLHOOKSTRUCT)).contents
-                    vk = kb.vkCode
-
                     # Verify if Strawberry's console window has foreground focus
                     console_hwnd = kernel32.GetConsoleWindow()
                     foreground_hwnd = user32.GetForegroundWindow()
                     is_focused = (console_hwnd != 0 and console_hwnd == foreground_hwnd)
 
-                    if wParam in (WM_KEYDOWN, WM_SYSKEYDOWN):
-                        if vk in (VK_MENU, VK_LMENU, VK_RMENU):
-                            if is_focused:
-                                self._alt_pressed = True
-                                self._combo_detected = False
-                        else:
-                            # Another key was pressed while ALT is down (e.g. ALT+TAB, ALT+F4)
-                            if self._alt_pressed:
-                                self._combo_detected = True
-
-                    elif wParam in (WM_KEYUP, WM_SYSKEYUP):
-                        if vk in (VK_MENU, VK_LMENU, VK_RMENU):
-                            if self._alt_pressed and not self._combo_detected and is_focused:
-                                # Clean standalone ALT release in focused console -> Silent emergency exit
-                                self.stop()
-                                os._exit(0)
-
-                            self._alt_pressed = False
-                            self._combo_detected = False
+                    if self.handle_key_event(wParam, kb.vkCode, is_focused):
+                        self.stop()
+                        os._exit(0)
 
                 return user32.CallNextHookEx(self._hook, nCode, wParam, lParam)
 

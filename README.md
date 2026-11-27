@@ -44,9 +44,17 @@ With Strawberry, students open their terminal, make three quick selections, and 
 * **Continuous Background Sync:** The background daemon polls for internet access every 3–5 minutes and silently pre-caches the full catalog and all source code files with single-instance mutex protection.
 
 ### 👩‍🏫 Faculty Admin Web App
-* **Curriculum Management:** Clean web interface for faculty to organize academic years, semesters, and subjects.
-* **Drag-and-Drop Publishing:** Upload source code files (`.py`, `.java`, `.c`, `.cpp`, `.sql`) with automatic in-browser SHA-256 calculation via Web Crypto API.
-* **Row-Level Security (RLS):** Authenticated staff can publish/update programs; student CLI clients maintain secure public read-only access.
+* **Supabase Auth Login Gate:** Email & Password sign-in (`signInWithPassword`) enforcing strict `TO authenticated` PostgreSQL and Storage RLS write policies.
+* **Academic Catalog & Analytics:** Porcelain-themed workspace with dedicated tabs for Dashboard, Programs, Subjects, Semesters, Years, Versions, Live Analytics, and System Settings.
+* **VS Code–Style Browser Code Authoring:** Full-height Dark+ syntax-highlighted workbench popup with line numbers, starter stubs, `Tab` indentation, `Ctrl+S` publishing, local file import, and real-time browser SHA-256 computation via Web Crypto API.
+* **Zero Hardcoded Mock Data:** Live database counts, curriculum share percentages, version audit logs, and database latency ping.
+
+---
+
+## 📚 Additional Guides
+* [Windows Installation & CLI Guide](file:///e:/Projects/Works/Strawberry/docs/installation.md) — Student setup via `Strawberry_Setup.exe`, silent lab deployment, SmartScreen guidance, offline mode, and Windows limitations.
+* [Faculty & Admin Guide](file:///e:/Projects/Works/Strawberry/docs/admin-guide.md) — Supabase Auth setup, curriculum authoring in the VS Code workbench, Vercel deployment, and installer builds.
+* [Architecture Specification](file:///e:/Projects/Works/Strawberry/docs/architecture.md) — Core architectural decisions and data flow.
 
 ---
 
@@ -211,7 +219,7 @@ You can create a single `.env` at the repository root to configure both the Pyth
 
 *Vite-prefixed aliases (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`) and legacy keys (`STRAWBERRY_SUPABASE_ANON_KEY`) are also fully supported.*
 
-*Note: If no Supabase credentials are provided, both the CLI and the Admin Web App run in complete offline demonstration mode with built-in curriculum data.*
+*Note: Without Supabase credentials, local SQLite initializes cleanly with empty tables ready for synchronization.*
 
 ---
 
@@ -369,28 +377,18 @@ tests/test_workflow.py::test_end_to_end_lite_workflow PASSED
 
 ## 📦 Production Deployment & Windows Packaging
 
-### Standalone Executable Packaging (`strawberry.exe`)
-To package the CLI as a single standalone Windows executable that students can run without Python installed:
-
-```bash
-cd strawberry-cli
-uv run pyinstaller --onefile --name strawberry src/strawberry_cli/main.py
-```
-The output binary will be generated at `strawberry-cli/dist/strawberry.exe`.
-
-### Windows Installer (`Strawberry_Setup.exe`)
-The complete Windows installation package is defined in [`installer/strawberry.iss`](file:///e:/Projects/Works/Strawberry/installer/strawberry.iss) and compiled via Inno Setup:
+### Standalone Executable & Windows Installer (`Strawberry_Setup.exe`)
+Run [build-release.bat](file:///e:/Projects/Works/Strawberry/build-release.bat) from the repository root to execute `pytest`, compile `strawberry-cli/dist/strawberry.exe` via PyInstaller, bundle a gitignored 2-key client `.env` (`URL` + `Publishable Key` only), and build `dist/Strawberry_Setup.exe` via [installer/strawberry.iss](file:///e:/Projects/Works/Strawberry/installer/strawberry.iss):
 1. **Per-User Installation:** Installs into `%LOCALAPPDATA%\Strawberry\bin` with zero administrative UAC prompts.
-2. **Automatic PATH Registration:** Adds Strawberry to the current user's `PATH` environment variable so opening any Command Prompt or PowerShell and typing `strawberry` works instantly.
-3. **Default Background Sync & Startup:** The installer automatically configures `StrawberryDaemon.vbs` in Windows Startup and immediately launches the background sync worker.
-4. **Clean Uninstallation:** Shuts down active background processes, unregisters the startup runner, and cleanly removes only Strawberry-owned PATH entries.
+2. **Automatic PATH & Client Config:** Adds Strawberry to the current user's `PATH` and places the read-only client `.env` inside `%LOCALAPPDATA%\Strawberry\`.
+3. **Default Background Sync & Startup:** Automatically registers `StrawberryDaemon.vbs` in Windows Startup, performs an initial `sync`, and launches the background sync worker.
+4. **Clean Uninstallation:** Terminates active background processes, unregisters the startup runner, deletes cached `.db`/`.json`/`.env` files, and cleanly removes only Strawberry-owned `PATH` entries.
 
-### Deploying the Admin Portal
-The `strawberry-admin` Vite app can be deployed in one click to [Vercel](https://vercel.com), [Netlify](https://netlify.com), or [Cloudflare Pages]:
-1. Connect your GitHub repository.
-2. Set Root Directory to `strawberry-admin`.
-3. Set Build Command to `npm run build` and Output Directory to `dist`.
-4. Configure `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` in your hosting dashboard's Environment Variables.
+### Deploying the Admin Portal on Vercel
+Run [deploy-admin-vercel.bat](file:///e:/Projects/Works/Strawberry/deploy-admin-vercel.bat) from the repository root (configured via [vercel.json](file:///e:/Projects/Works/Strawberry/vercel.json)):
+1. Verifies `npm run build` in `strawberry-admin/`.
+2. Links the Vercel project and pushes only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel Project Environment Variables.
+3. Deploys `strawberry-admin` to Vercel production (`vercel deploy --prod`).
 
 ---
 

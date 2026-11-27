@@ -2,6 +2,7 @@
 .agents/
 seed/
 .vercel/
+installer/.env.student
 
 # Python
 __pycache__/
@@ -67,3 +68,6 @@ $RECYCLE.BIN/
 cache/
 downloads/
 logs/
+
+.vercel
+.env*

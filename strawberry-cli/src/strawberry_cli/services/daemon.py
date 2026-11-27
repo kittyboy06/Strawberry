@@ -146,14 +146,21 @@ def start_daemon_background() -> bool:
         CREATE_NO_WINDOW = 0x08000000
         flags = DETACHED_PROCESS | CREATE_NO_WINDOW
 
+        spawn_env = os.environ.copy()
         if getattr(sys, "frozen", False):
             cmd = [sys.executable, "daemon"]
+            # Instruct PyInstaller --onefile bootloader in the detached child to
+            # unpack cleanly into its own temp directory rather than sharing parent _MEI.
+            spawn_env["PYINSTALLER_RESET_ENVIRONMENT"] = "1"
+            for pyi_var in ("_MEIPASS2", "_PYI_APPLICATION_HOME_DIR", "_PYI_PARENT_PROCESS_LEVEL"):
+                spawn_env.pop(pyi_var, None)
         else:
             pythonw = sys.executable.replace("python.exe", "pythonw.exe")
             cmd = [pythonw, "-m", "strawberry_cli.main", "daemon"]
 
         subprocess.Popen(
             cmd,
+            env=spawn_env,
             creationflags=flags,
             close_fds=True,
             stdout=subprocess.DEVNULL,

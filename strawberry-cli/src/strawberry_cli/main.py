@@ -21,8 +21,9 @@ from strawberry_cli.core.keyboard_controller import keyboard_controller
 from strawberry_cli.lite.workflow import start_lite
 from strawberry_cli.pro.app import start_pro
 from strawberry_cli.services.daemon import (
-    run_daemon, 
-    register_windows_startup, 
+    run_daemon,
+    register_windows_startup,
+    start_daemon_background,
     ensure_background_services,
 )
 from strawberry_cli.repository.supabase_sync import supabase_sync
@@ -83,8 +84,14 @@ def pro_command():
 def daemon_command(
     interval: Optional[int] = typer.Option(
         None, "--interval", "-i", help="Polling interval in seconds (default 240)."
-    )
+    ),
+    detach: bool = typer.Option(
+        False, "--detach", help="Spawn the daemon detached in the background and exit."
+    ),
 ):
+    if detach:
+        start_daemon_background()
+        return
     run_daemon(poll_interval=interval)
 
 

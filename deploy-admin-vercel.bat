@@ -96,8 +96,8 @@ if defined PUB_URL if defined PUB_KEY (
     echo Note: Ensure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY are set in Vercel Project Settings.
     set /p "SYNC_ENV=Push public VITE_SUPABASE_URL & VITE_SUPABASE_PUBLISHABLE_KEY to Vercel production env? (y/N): "
     if /i "!SYNC_ENV!"=="y" (
-        echo !PUB_URL!| call %VERCEL_CMD% env add VITE_SUPABASE_URL production --force
-        echo !PUB_KEY!| call %VERCEL_CMD% env add VITE_SUPABASE_PUBLISHABLE_KEY production --force
+        <nul set /p ="!PUB_URL!"| call %VERCEL_CMD% env add VITE_SUPABASE_URL production --force
+        <nul set /p ="!PUB_KEY!"| call %VERCEL_CMD% env add VITE_SUPABASE_PUBLISHABLE_KEY production --force
     )
 ) else (
     echo [WARN] No local .env Supabase keys found. Configure VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY in Vercel Dashboard.
