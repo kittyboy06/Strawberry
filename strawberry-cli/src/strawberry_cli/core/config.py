@@ -38,7 +38,7 @@ class StrawberryConfig(BaseModel):
     """Runtime configuration for Strawberry CLI."""
 
     app_name: str = "Strawberry"
-    version: str = "0.1.0"
+    version: str = "0.2.0"
     tagline: str = "Pick your program. Paste your code."
 
     # Timeout settings

@@ -53,7 +53,7 @@ echo [2/4] Building standalone executable ^(strawberry.exe^)...
 if not exist ".venv\Scripts\pyinstaller.exe" (
     call uv pip install pyinstaller
 )
-call .\.venv\Scripts\pyinstaller.exe --onefile --name strawberry --paths src --clean src\strawberry_cli\main.py
+call .\.venv\Scripts\pyinstaller.exe --onefile --name strawberry --paths src --icon ..\installer\strawberry.ico --version-file ..\installer\version_info.txt --clean src\strawberry_cli\main.py
 if errorlevel 1 (
     popd
     echo [ERROR] PyInstaller build failed.

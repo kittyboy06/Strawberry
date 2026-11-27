@@ -3,8 +3,8 @@
 ; Installs per-user, registers PATH, installs client .env, and configures background sync daemon.
 
 #define MyAppName "Strawberry"
-#define MyAppVersion "0.1.0"
-#define MyAppPublisher "Strawberry Team"
+#define MyAppVersion "0.2.0"
+#define MyAppPublisher "Strawberry Contributors"
 #define MyAppURL "https://github.com/Kittyboy06/Strawberry"
 #define MyAppExeName "strawberry.exe"
 
@@ -16,6 +16,12 @@ AppPublisher={#MyAppPublisher}
 AppPublisherURL={#MyAppURL}
 AppSupportURL={#MyAppURL}
 AppUpdatesURL={#MyAppURL}
+VersionInfoVersion=0.2.0.0
+VersionInfoCompany={#MyAppPublisher}
+VersionInfoDescription=Strawberry — Windows CLI Laboratory Program Retrieval Installer
+VersionInfoCopyright=Copyright (c) 2026 Strawberry Contributors (MIT License)
+SetupIconFile=strawberry.ico
+UninstallDisplayIcon={app}\bin\{#MyAppExeName}
 DefaultDirName={localappdata}\Strawberry
 DefaultGroupName={#MyAppName}
 DisableProgramGroupPage=yes

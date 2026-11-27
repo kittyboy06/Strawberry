@@ -35,4 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
+    version='../installer/version_info.txt',
+    icon=['../installer/strawberry.ico'],
 )
