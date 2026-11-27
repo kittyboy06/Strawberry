@@ -60,7 +60,7 @@ With Strawberry, students open their terminal, make three quick selections, and 
 * [Windows Installation & CLI Guide](docs/installation.md) — Student setup via `Strawberry_Setup.exe`, silent lab deployment, SmartScreen guidance, offline mode, and Windows limitations.
 * [Faculty & Admin Guide](docs/admin-guide.md) — Supabase Auth setup, curriculum authoring in the VS Code workbench, Vercel deployment, and installer builds.
 * [Architecture Specification](docs/architecture.md) — Core architectural decisions and data flow.
-* [Code Signing Setup (SignPath Foundation)](docs/code-signing.md) — Automated CI Authenticode signing setup for GitHub Releases.
+* [Code Signing Setup (Azure Trusted Signing)](docs/code-signing.md) — Independent Windows Authenticode signing for local builds and GitHub Releases.
 
 ---
 
@@ -417,18 +417,9 @@ Run [deploy-admin-vercel.bat](deploy-admin-vercel.bat) from the repository root 
 
 ---
 
-## 🛡️ Code Signing & Privacy Policy
+## 🛡️ Security, Signing & Privacy Policy
 
-### Code Signing Policy
-Free code signing provided by [SignPath.io](https://about.signpath.io/), certificate by [SignPath Foundation](https://signpath.org/).
-
-| Role | Maintainer(s) | Responsibility |
-| :--- | :--- | :--- |
-| **Author / Committer** | [@Kittyboy06](https://github.com/Kittyboy06) & Contributors | Author source commits and pull requests reviewed by CI. |
-| **Reviewer** | [@Kittyboy06](https://github.com/Kittyboy06) | Reviews pull requests, dependency locks, and release artifacts. |
-| **Approver** | [@Kittyboy06](https://github.com/Kittyboy06) | Authorizes release tags and SignPath Foundation signing requests. |
-
-### Privacy Policy
+* **Independent Code Signing:** Release builds support Microsoft **Azure Trusted Signing** (both locally via [build-release.bat](build-release.bat) and in CI via [.github/workflows/release.yml](.github/workflows/release.yml)). See [docs/code-signing.md](docs/code-signing.md) for setup details.
 * **Zero Telemetry:** Strawberry does not collect analytics, usage telemetry, keystrokes outside its active console focus guard, or crash reports.
 * **Network Activity:** Strawberry connects solely over HTTPS to the configured Supabase project (`STRAWBERRY_SUPABASE_URL`) to synchronize published lab catalogs and verified source code files.
 * **Local Storage:** Cached source files and preferences remain locally inside `%LOCALAPPDATA%\Strawberry\` on the user's workstation and are removed cleanly upon uninstall.

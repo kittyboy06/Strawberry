@@ -1,39 +1,55 @@
-# Code Signing Setup with SignPath Foundation
+# Independent Windows Code Signing with Azure Trusted Signing
 
-Windows Defender SmartScreen flags unsigned `.exe` installers downloaded from the internet as *"Windows protected your PC / Unknown publisher"*. Because [SignPath Foundation](https://about.signpath.io/product/open-source/) sponsors free CA-trusted Authenticode code signing for eligible public open-source GitHub repositories, Strawberry integrates directly with SignPath via GitHub Actions in [.github/workflows/release.yml](../.github/workflows/release.yml).
-
----
-
-## 1. Prerequisites Already Configured in Repository
-* **MIT License:** [LICENSE](../LICENSE)
-* **Public Repository:** `https://github.com/Kittyboy06/Strawberry`
-* **Attribution, Team Roles & Privacy Policy:** Included in [README.md](../README.md#code-signing--privacy-policy) as required for SignPath Foundation review.
-* **Verifiable GitHub-Hosted CI Build:** Builds strictly from source on `windows-latest` inside GitHub Actions.
-* **PE Metadata & Icon:** [installer/strawberry.ico](../installer/strawberry.ico) and [installer/version_info.txt](../installer/version_info.txt).
+Windows Defender SmartScreen flags unsigned `.exe` downloads as *"Windows protected your PC / Unknown publisher"*. Using **Microsoft Azure Trusted Signing** (Azure Artifact Signing), you can sign `strawberry.exe` and `Strawberry_Setup.exe` independently with your own verified publisher identity—both **from GitHub Actions CI** and **locally on Windows** via `build-release.bat`.
 
 ---
 
-## 2. Onboarding Checklist (One-Time Setup)
+## 1. Azure Portal One-Time Setup
 
-1. **Apply to SignPath Foundation:**
-   * Submit an open-source project request at **https://about.signpath.io/product/open-source/** referencing `https://github.com/Kittyboy06/Strawberry`.
-2. **Install the SignPath GitHub App:**
-   * After approval, install the **SignPath GitHub App** on `Kittyboy06/Strawberry` so SignPath can verify build provenance.
-3. **Configure SignPath Dashboard:**
-   * Create a Project (recommended slug: `strawberry`).
-   * Create an Artifact Configuration matching `strawberry-unsigned` containing `Strawberry_Setup.exe` and `strawberry.exe`.
-   * Create a Release Signing Policy (`release-signing`) using the SignPath Foundation certificate.
-4. **Configure GitHub Repository Secrets & Variables** (`Settings -> Secrets and variables -> Actions`):
-   * **Secrets:**
-     * `SIGNPATH_API_TOKEN` — API token from your SignPath submitter account.
-   * **Variables:**
-     * `SIGNPATH_ORGANIZATION_ID` — Your SignPath Organization UUID.
-     * `STRAWBERRY_SUPABASE_URL` — Public Supabase project URL.
-     * `STRAWBERRY_SUPABASE_PUBLISHABLE_KEY` — Public `sb_publishable_...` key (**never** add `SECRET_KEY`).
-     * Optional overrides if your SignPath slugs differ from defaults: `SIGNPATH_PROJECT_SLUG`, `SIGNPATH_SIGNING_POLICY_SLUG`, `SIGNPATH_ARTIFACT_CONFIG_SLUG`.
-5. **Trigger Signed Release `v0.2.0`:**
-   ```bash
-   git tag -a v0.2.0 -m "Strawberry v0.2.0"
-   git push origin v0.2.0
+1. Create a **Trusted Signing Account** (`Microsoft.CodeSigning/codeSigningAccounts`) in the [Azure Portal](https://portal.azure.com) (supported regions include East US `https://eus.codesigning.azure.net/`, West US 2 `https://wus2.codesigning.azure.net/`, West Europe `https://weu.codesigning.azure.net/`, North Europe `https://neu.codesigning.azure.net/`).
+2. Complete **Identity Validation** (Individual or Organization) under your Trusted Signing Account.
+3. Create a **Certificate Profile** of type **Public Trust** (used for Windows Authenticode & SmartScreen).
+4. Grant RBAC role **`Trusted Signing Certificate Profile Signer`** on the Certificate Profile to:
+   * Your own Azure user account (for local signing via `az login` + `build-release.bat`), **and**
+   * A Microsoft Entra App Registration / Federated Identity for GitHub Actions OIDC (`Kittyboy06/Strawberry`).
+
+---
+
+## 2. Local Signing on Windows (`build-release.bat`)
+
+1. Install prerequisites once:
+   ```powershell
+   winget install -e --id Microsoft.Azure.ArtifactSigningClientTools
+   winget install -e --id Microsoft.AzureCLI
+   az login
    ```
-   GitHub Actions builds on `windows-latest`, submits the artifact to SignPath Foundation, verifies signatures, computes `SHA256SUMS.txt`, and publishes the signed release to GitHub Releases.
+2. Add your non-secret Trusted Signing identifiers to your local `.env` (gitignored) or shell environment before running `build-release.bat`:
+   ```dotenv
+   AZURE_SIGNING_ENDPOINT=https://eus.codesigning.azure.net/
+   AZURE_SIGNING_ACCOUNT=your-trusted-signing-account
+   AZURE_SIGNING_PROFILE=your-certificate-profile
+   ```
+3. Run `build-release.bat`. It automatically signs `strawberry-cli\dist\strawberry.exe`, bundles it into `dist\Strawberry_Setup.exe`, and signs `dist\Strawberry_Setup.exe` using `signtool.exe` + `Azure.CodeSigning.Dlib.dll` and RFC 3161 timestamping (`http://timestamp.acs.microsoft.com`).
+
+---
+
+## 3. Automated Signing in GitHub Actions
+
+Configure your repository in **GitHub → Settings → Secrets and variables → Actions**:
+
+* **Secrets:**
+  * `AZURE_CLIENT_ID` — Entra App (Client) ID with OIDC federated credential for `repo:Kittyboy06/Strawberry:ref:refs/tags/*`
+  * `AZURE_TENANT_ID` — Azure Tenant ID
+  * `AZURE_SUBSCRIPTION_ID` — Azure Subscription ID
+* **Variables:**
+  * `AZURE_SIGNING_ENDPOINT` — Regional URI (e.g., `https://eus.codesigning.azure.net/`)
+  * `AZURE_SIGNING_ACCOUNT` — Trusted Signing Account name
+  * `AZURE_SIGNING_PROFILE` — Public Trust Certificate Profile name
+  * `STRAWBERRY_SUPABASE_URL` — Public Supabase URL (already configured)
+  * `STRAWBERRY_SUPABASE_PUBLISHABLE_KEY` — Public `sb_publishable_...` key (already configured)
+
+Push a version tag to build, sign, hash, and publish automatically:
+```bash
+git tag -a v0.2.0 -m "Strawberry v0.2.0"
+git push origin v0.2.0
+```

@@ -3,6 +3,7 @@
 seed/
 .vercel/
 installer/.env.student
+installer/.signing-metadata.json
 
 # Python
 __pycache__/

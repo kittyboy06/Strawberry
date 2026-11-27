@@ -7,6 +7,7 @@ import tempfile
 from pathlib import Path
 import pytest
 
+from strawberry_cli.core.config import config
 from strawberry_cli.core.keyboard_controller import KeyboardController
 from strawberry_cli.services.clipboard import ClipboardService
 
@@ -98,4 +99,4 @@ def test_standalone_exe_runs_without_python_in_path():
     )
     assert res.returncode == 0
     assert "Strawberry" in res.stdout
-    assert "v0.1.0" in res.stdout
+    assert f"v{config.version}" in res.stdout
