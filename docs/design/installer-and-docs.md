@@ -40,8 +40,8 @@
 ## 4. Final Design
 
 ### Track 1: Release Pipeline & Inno Setup Hardening
-1. **[.gitignore](../.gitignore):** Ignore `installer/.env.student`.
-2. **[installer/strawberry.iss](../installer/strawberry.iss):**
+1. **[.gitignore](../../.gitignore):** Ignore `installer/.env.student`.
+2. **[installer/strawberry.iss](../../installer/strawberry.iss):**
    * Package `..\strawberry-cli\dist\strawberry.exe` → `{app}\bin\strawberry.exe`.
    * Package `..\installer\.env.student` → `{app}\.env` (`Flags: ignoreversion`).
    * Package `..\README.md`, `..\docs\architecture.md`, `..\docs\installation.md`, `..\docs\admin-guide.md` → `{app}` / `{app}\docs`.

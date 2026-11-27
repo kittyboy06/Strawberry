@@ -258,57 +258,58 @@ You can create a single `.env` at the repository root to configure both the Pyth
 
 ```text
 Strawberry/
+├── .github/                       # CI workflows & issue/PR templates
 ├── docs/
-│   └── architecture.md            # Complete validated design specification
+│   ├── architecture.md            # Core architecture & sync specification
+│   ├── installation.md            # Student Windows installation & CLI guide
+│   ├── admin-guide.md             # Faculty authoring & Vercel deployment guide
+│   └── design/                    # Internal concept & implementation specs
 │
-├── strawberry-cli/                # Python CLI & Background Sync Daemon
+├── installer/
+│   └── strawberry.iss             # Inno Setup 6 script for Strawberry_Setup.exe
+│
+├── strawberry-cli/                # Python CLI, TUI & Background Sync Daemon
 │   ├── src/
 │   │   └── strawberry_cli/
 │   │       ├── __init__.py
 │   │       ├── main.py            # CLI command router
-│   │       ├── core/
-│   │       │   ├── config.py      # App paths (%LOCALAPPDATA%) & settings
-│   │       │   ├── timer.py       # 7-second countdown & progress bar renderer
-│   │       │   ├── input_handler.py # Non-blocking input & cursor control
-│   │       │   └── keyboard_controller.py # Focus-aware silent ALT hook
-│   │       ├── lite/
-│   │       │   ├── interface.py   # Screen rendering & formatting
-│   │       │   └── workflow.py    # 4-step guided student journey
+│   │       ├── core/              # Config, timer, input & ALT kill-switch
+│   │       ├── lite/              # Guided 4-step terminal interface
+│   │       ├── pro/               # Full Textual TUI workspace & theme
 │   │       ├── models/            # Pydantic data models
-│   │       ├── repository/
-│   │       │   ├── base.py        # Abstract repository contract
-│   │       │   ├── sqlite_repo.py # Offline SQLite storage manager
-│   │       │   ├── mock_data.py   # Seed demonstration curriculum
-│   │       │   └── supabase_sync.py # Remote Supabase reconciliation
-│   │       └── services/
-│   │           ├── cache.py       # Local file cache & SHA-256 verification
-│   │           ├── clipboard.py   # Windows UTF-8/CRLF clipboard service
-│   │           └── daemon.py      # Background sync loop & Windows Startup
-│   ├── tests/
-│   │   ├── test_timer.py          # Timer & progress bar tests
-│   │   ├── test_storage.py        # SQLite & cache integrity tests
-│   │   ├── test_clipboard.py      # Line endings & clipboard tests
-│   │   └── test_workflow.py       # End-to-end simulated CLI workflow tests
+│   │       ├── repository/        # Base contract, SQLite cache & Supabase sync
+│   │       └── services/          # File cache, Win32 clipboard, daemon & Pro state
+│   ├── tests/                     # Pytest unit & Windows integration tests
 │   └── pyproject.toml
 │
-├── strawberry-admin/              # React + Vite + Tailwind Admin Web App
+├── strawberry-admin/              # React + TypeScript + Vite Admin Portal
 │   ├── src/
-│   │   ├── components/            # Navbar, UploadModal, etc.
-│   │   ├── lib/                   # Supabase client & Web Crypto SHA-256
+│   │   ├── assets/                # Strawberry brand PNG assets
+│   │   ├── components/            # LoginScreen, Navbar, UploadModal, VscWorkbenchModal
+│   │   ├── lib/                   # Supabase client, Web Crypto SHA-256 & code stubs
 │   │   ├── types/                 # TypeScript interfaces
-│   │   ├── App.tsx                # Curriculum dashboard & uploader
+│   │   ├── App.tsx                # Faculty curriculum & analytics workspace
 │   │   ├── main.tsx
 │   │   └── index.css              # Tailwind styling
+│   ├── scripts/
+│   │   └── seed_database.cjs      # Optional local seed importer
 │   ├── package.json
 │   └── vite.config.ts
 │
 ├── supabase/                      # Cloud Backend Database
 │   ├── migrations/
-│   │   └── 001_initial_schema.sql # Tables, RLS policies, storage bucket
-│   └── seed.sql                   # Sample curriculum data
+│   │   └── 001_initial_schema.sql # Tables, RLS policies & storage bucket
+│   └── seed.sql                   # Academic years & semesters seed
 │
+├── .env.example                   # Environment variable template
+├── .gitattributes                 # Cross-platform line-ending rules
 ├── .gitignore                     # Git ignore rules
-└── README.md                      # This documentation
+├── build-release.bat              # Automated test, PyInstaller & installer builder
+├── CONTRIBUTING.md                # Contributor & verification guide
+├── deploy-admin-vercel.bat        # Vercel production deployment helper
+├── LICENSE                        # MIT License
+├── README.md                      # Project documentation
+└── vercel.json                    # Vercel build & SPA routing config
 ```
 
 ---
