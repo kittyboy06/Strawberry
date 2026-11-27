@@ -2,22 +2,33 @@
 
 import json
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any, Optional
 import httpx
 
 from strawberry_cli.core.config import config
 from strawberry_cli.repository.sqlite_repo import SQLiteCatalogRepository
-from strawberry_cli.services.cache import cache_service
+from strawberry_cli.services.cache import CacheService, cache_service
 
 
 class SupabaseSyncService:
     """Synchronizes the local SQLite database and file cache with Supabase."""
 
-    def __init__(self, repo: Optional[SQLiteCatalogRepository] = None):
-        self.repo = repo or SQLiteCatalogRepository()
+    def __init__(
+        self,
+        repo: Optional[SQLiteCatalogRepository] = None,
+        cache: Optional[CacheService] = None,
+    ):
+        self._repo = repo
+        self.cache = cache or cache_service
         self.supabase_url = config.base_supabase_url
         self.publishable_key = config.supabase_publishable_key
+
+    @property
+    def repo(self) -> SQLiteCatalogRepository:
+        if self._repo is None:
+            self._repo = SQLiteCatalogRepository()
+        return self._repo
 
     def is_configured(self) -> bool:
         """Checks if remote Supabase credentials are configured."""
@@ -41,8 +52,35 @@ class SupabaseSyncService:
             "Content-Type": "application/json",
         }
 
+    @staticmethod
+    def _fetch_table(
+        client: httpx.Client,
+        base_rest: str,
+        table: str,
+        headers: dict[str, str],
+        filter_query: str = "",
+    ) -> list[dict[str, Any]]:
+        """Fetches a table from PostgREST and raises if non-200 or invalid JSON list."""
+        url = f"{base_rest}/{table}?select=*{filter_query}"
+        res = client.get(url, headers=headers)
+        if res.status_code != 200:
+            raise RuntimeError(f"Failed fetching {table}: HTTP {res.status_code}")
+        payload = res.json()
+        if not isinstance(payload, list):
+            raise RuntimeError(f"Unexpected payload for {table}: expected list")
+        return payload
+
+    @staticmethod
+    def _prune_missing_ids(conn: Any, table: str, keep_ids: set[str]) -> None:
+        """Deletes rows in `table` whose IDs are absent from `keep_ids`."""
+        if not keep_ids:
+            conn.execute(f"DELETE FROM {table}")
+            return
+        placeholders = ",".join("?" for _ in keep_ids)
+        conn.execute(f"DELETE FROM {table} WHERE id NOT IN ({placeholders})", tuple(keep_ids))
+
     def sync(self) -> dict[str, Any]:
-        """Performs a full synchronization cycle if online."""
+        """Performs a full transactional mirror synchronization if online."""
         if not self.is_online():
             return {"status": "offline", "synced": False, "timestamp": time.time()}
 
@@ -51,17 +89,25 @@ class SupabaseSyncService:
 
         try:
             with httpx.Client(timeout=config.network_timeout_seconds) as client:
-                # 1. Fetch remote catalog tables
-                years = client.get(f"{base_rest}/years?select=*", headers=headers).json()
-                semesters = client.get(f"{base_rest}/semesters?select=*", headers=headers).json()
-                subjects = client.get(f"{base_rest}/subjects?select=*&is_active=eq.true", headers=headers).json()
-                experiments = client.get(
-                    f"{base_rest}/experiments?select=*&is_published=eq.true", headers=headers
-                ).json()
-                versions = client.get(f"{base_rest}/experiment_versions?select=*", headers=headers).json()
+                # 1. Fetch & validate all remote catalog tables BEFORE altering local state
+                years = self._fetch_table(client, base_rest, "years", headers)
+                semesters = self._fetch_table(client, base_rest, "semesters", headers)
+                subjects = self._fetch_table(client, base_rest, "subjects", headers, "&is_active=eq.true")
+                experiments = self._fetch_table(client, base_rest, "experiments", headers, "&is_published=eq.true")
+                versions = self._fetch_table(client, base_rest, "experiment_versions", headers)
 
-                # 2. Reconcile with local SQLite database
+                # Keep only versions belonging to published experiments
+                exp_ids = {exp["id"] for exp in experiments}
+                versions = [v for v in versions if v["experiment_id"] in exp_ids]
+
+                # 2. Prune stale/mock records in reverse FK order, then upsert live catalog
                 with self.repo._get_connection() as conn:
+                    self._prune_missing_ids(conn, "experiment_versions", {v["id"] for v in versions})
+                    self._prune_missing_ids(conn, "experiments", exp_ids)
+                    self._prune_missing_ids(conn, "subjects", {sub["id"] for sub in subjects})
+                    self._prune_missing_ids(conn, "semesters", {s["id"] for s in semesters})
+                    self._prune_missing_ids(conn, "years", {y["id"] for y in years})
+
                     for y in years:
                         conn.execute(
                             "INSERT OR REPLACE INTO years (id, year_number, display_name) VALUES (?, ?, ?)",
@@ -96,28 +142,30 @@ class SupabaseSyncService:
                     expected_sha = v["sha256"]
                     storage_path = v["storage_path"].lstrip("/")
 
-                    # Check if file already cached and valid
-                    if not cache_service.verify_integrity(filename, expected_sha):
-                        # Download from Supabase Storage public URL
-                        # Try primary path: bucket 'programs' + storage_path
+                    if not self.cache.verify_integrity(filename, expected_sha):
                         storage_url = f"{self.supabase_url}/storage/v1/object/public/programs/{storage_path}"
                         file_res = client.get(storage_url, headers=headers)
                         if file_res.status_code != 200:
-                            # Fallback: direct path as bucket/object
                             fallback_url = f"{self.supabase_url}/storage/v1/object/public/{storage_path}"
                             file_res = client.get(fallback_url, headers=headers)
 
                         if file_res.status_code == 200:
-                            cache_service.save_file(filename, file_res.content, expected_sha)
+                            self.cache.save_file(filename, file_res.content, expected_sha)
                             files_downloaded += 1
 
-                # 4. Record sync state
+                # 4. Prune orphaned cached files no longer in the catalog
+                active_filenames = {v["filename"] for v in versions}
+                files_pruned = self.cache.prune_orphans(active_filenames)
+
+                # 5. Record sync state
                 state = {
                     "status": "success",
                     "synced": True,
-                    "last_sync": datetime.utcnow().isoformat(),
+                    "last_sync": datetime.now(timezone.utc).isoformat(),
                     "files_downloaded": files_downloaded,
+                    "files_pruned": files_pruned,
                 }
+                config.sync_state_path.parent.mkdir(parents=True, exist_ok=True)
                 config.sync_state_path.write_text(json.dumps(state, indent=2), encoding="utf-8")
                 return state
 

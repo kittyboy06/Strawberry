@@ -1,4 +1,4 @@
--- 🍓 Strawberry Default Seed Data
+-- 🍓 Strawberry Academic Structure Seed (Years & Semesters only)
 
 INSERT INTO public.years (id, year_number, display_name) VALUES
     ('00000000-0000-0000-0000-000000000002', 2, '2nd Year'),
@@ -14,15 +14,3 @@ INSERT INTO public.semesters (id, year_id, semester_number, display_name) VALUES
     ('00000000-0000-0000-0000-000000000035', '00000000-0000-0000-0000-000000000004', 7, 'Semester 7'),
     ('00000000-0000-0000-0000-000000000036', '00000000-0000-0000-0000-000000000004', 8, 'Semester 8')
 ON CONFLICT DO NOTHING;
-
-INSERT INTO public.subjects (id, semester_id, subject_code, subject_name) VALUES
-    ('11111111-1111-1111-1111-111111111101', '00000000-0000-0000-0000-000000000031', 'CS301', 'Computer Networks'),
-    ('11111111-1111-1111-1111-111111111102', '00000000-0000-0000-0000-000000000031', 'CS302', 'Database Management Systems'),
-    ('11111111-1111-1111-1111-111111111103', '00000000-0000-0000-0000-000000000031', 'CS303', 'Java Programming'),
-    ('11111111-1111-1111-1111-111111111104', '00000000-0000-0000-0000-000000000032', 'CS401', 'Operating Systems')
-ON CONFLICT (subject_code) DO NOTHING;
-
-INSERT INTO public.experiments (id, subject_id, experiment_number, title, description) VALUES
-    ('22222222-2222-2222-2222-222222222201', '11111111-1111-1111-1111-111111111101', 1, 'Socket Programming', 'TCP socket server and client communication'),
-    ('22222222-2222-2222-2222-222222222202', '11111111-1111-1111-1111-111111111101', 2, 'TCP Client Server', 'TCP client connection to echo server')
-ON CONFLICT (subject_id, experiment_number) DO NOTHING;

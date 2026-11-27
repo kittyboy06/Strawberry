@@ -57,6 +57,50 @@ Screen {
     text-style: bold;
 }
 
+.mode-btn {
+    margin: 0 1;
+    min-width: 12;
+    background: #1e293b;
+    color: #94a3b8;
+    border: none;
+}
+
+.mode-btn.-active {
+    background: #be123c;
+    color: #ffffff;
+    text-style: bold;
+}
+
+#action-row {
+    height: auto;
+    margin-top: 1;
+}
+
+#copy-btn {
+    width: 1fr;
+    background: #e11d48;
+    color: #ffffff;
+    text-style: bold;
+}
+
+#copy-btn:hover {
+    background: #f43f5e;
+}
+
+#bookmark-btn {
+    width: 22;
+    margin-left: 1;
+    background: #1e293b;
+    color: #f1f5f9;
+    border: solid #334155;
+}
+
+#bookmark-btn.-bookmarked {
+    background: #881337;
+    color: #fde047;
+    border: solid #f43f5e;
+}
+
 #main-content {
     height: 1fr;
     layout: horizontal;
@@ -138,18 +182,6 @@ ListItem.-selected {
     border: solid #1e293b;
     padding: 1;
     margin-bottom: 1;
-}
-
-#copy-btn {
-    width: 100%;
-    background: #e11d48;
-    color: #ffffff;
-    text-style: bold;
-    margin-top: 1;
-}
-
-#copy-btn:hover {
-    background: #f43f5e;
 }
 
 #footer-bar {

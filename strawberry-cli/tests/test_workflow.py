@@ -1,10 +1,10 @@
+import hashlib
 import tempfile
 from pathlib import Path
 from strawberry_cli.lite.workflow import LiteWorkflow
 from strawberry_cli.repository.sqlite_repo import SQLiteCatalogRepository
 from strawberry_cli.core.input_handler import TimedInputHandler
 from strawberry_cli.services.cache import CacheService
-from strawberry_cli.repository.mock_data import DEMO_PROGRAMS, get_demo_hash
 
 
 class MockInputHandler(TimedInputHandler):
@@ -30,31 +30,41 @@ def test_end_to_end_lite_workflow(capsys, monkeypatch):
         cache_dir = temp_path / "cache"
         cache_dir.mkdir(parents=True, exist_ok=True)
 
-        # Seed program file in test cache
-        filename = "socket_server.py"
+        filename = "hello_lab.py"
+        raw_code = b"print('ok')\n"
+        sha = hashlib.sha256(raw_code).hexdigest()
+
         test_cache = CacheService(cache_dir=cache_dir)
-        test_cache.save_file(
-            filename,
-            DEMO_PROGRAMS[filename].encode("utf-8"),
-            get_demo_hash(filename),
-        )
+        test_cache.save_file(filename, raw_code, sha)
 
         repo = SQLiteCatalogRepository(db_path=db_path)
+        with repo._get_connection() as conn:
+            conn.execute("INSERT INTO years (id, year_number, display_name) VALUES ('y2', 2, '2nd Year')")
+            conn.execute(
+                "INSERT INTO semesters (id, year_id, semester_number, display_name) VALUES ('s3', 'y2', 3, 'Semester 3')"
+            )
+            conn.execute(
+                "INSERT INTO subjects (id, semester_id, subject_code, subject_name, is_active) VALUES ('sub1', 's3', 'CS101', 'Sample Course', 1)"
+            )
+            conn.execute(
+                "INSERT INTO experiments (id, subject_id, experiment_number, title, description, is_published) VALUES ('exp1', 'sub1', 1, 'Hello Lab', 'Sample test', 1)"
+            )
+            conn.execute(
+                "INSERT INTO experiment_versions (id, experiment_id, version_number, storage_path, filename, sha256) VALUES ('ver1', 'exp1', 1, 'programs/exp1/hello_lab.py', ?, ?)",
+                (filename, sha),
+            )
+            conn.commit()
 
-        # Simulate student choosing:
-        # 1 -> 2nd Year
-        # 1 -> Computer Networks
-        # 1 -> Socket Programming
         mock_input = MockInputHandler(responses=["1", "1", "1"])
         workflow = LiteWorkflow(repository=repo, input_handler=mock_input)
 
-        # Patch global cache service to test cache
         monkeypatch.setattr("strawberry_cli.lite.workflow.cache_service", test_cache)
+        monkeypatch.setattr("strawberry_cli.lite.workflow.clipboard_service.copy_to_clipboard", lambda _t: True)
 
         workflow.run()
 
         captured = capsys.readouterr().out
         assert "Welcome to Strawberry!" in captured
-        assert "Computer Networks" in captured
+        assert "Sample Course" in captured
         assert "Program retrieved" in captured
         assert "Integrity verified (SHA-256)" in captured

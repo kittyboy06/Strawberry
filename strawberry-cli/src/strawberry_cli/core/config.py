@@ -17,12 +17,13 @@ def _load_environment() -> None:
     )
 
     # Search candidates in priority order
-    candidates = [
-        Path.cwd() / ".env",
-        Path(__file__).resolve().parents[4] / ".env",  # Workspace root
-        Path(__file__).resolve().parents[3] / ".env",  # strawberry-cli root
-        app_data / ".env",
-    ]
+    resolved = Path(__file__).resolve()
+    candidates = [Path.cwd() / ".env"]
+    if len(resolved.parents) > 4:
+        candidates.append(resolved.parents[4] / ".env")  # Workspace root
+    if len(resolved.parents) > 3:
+        candidates.append(resolved.parents[3] / ".env")  # strawberry-cli root
+    candidates.append(app_data / ".env")
 
     for candidate in candidates:
         if candidate.is_file():
@@ -61,7 +62,7 @@ class StrawberryConfig(BaseModel):
         )
     )
 
-    # Supabase remote configuration (Modern publishable & secret keys, with legacy anon fallback)
+    # Supabase remote configuration read from environment / .env (no hardcoded credentials)
     supabase_url: str = Field(
         default_factory=lambda: (
             os.getenv("STRAWBERRY_SUPABASE_URL")
@@ -109,6 +110,10 @@ class StrawberryConfig(BaseModel):
     @property
     def sync_state_path(self) -> Path:
         return self.local_app_data / "sync_state.json"
+
+    @property
+    def pro_state_path(self) -> Path:
+        return self.local_app_data / "pro_state.json"
 
     def ensure_directories(self) -> None:
         """Ensure all required local directories exist."""

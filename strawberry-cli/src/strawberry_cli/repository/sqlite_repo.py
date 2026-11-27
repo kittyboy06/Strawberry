@@ -7,14 +7,6 @@ from typing import Iterator, Optional
 from strawberry_cli.core.config import config
 from strawberry_cli.models import Year, Semester, Subject, Experiment, ExperimentVersion
 from .base import BaseCatalogRepository
-from .mock_data import (
-    SEED_YEARS,
-    SEED_SEMESTERS,
-    SEED_SUBJECTS,
-    SEED_EXPERIMENTS,
-    DEMO_PROGRAMS,
-    get_demo_hash,
-)
 
 
 class SQLiteCatalogRepository(BaseCatalogRepository):
@@ -35,7 +27,7 @@ class SQLiteCatalogRepository(BaseCatalogRepository):
             conn.close()
 
     def _init_database(self) -> None:
-        """Create tables if they do not exist and seed default demonstration catalog."""
+        """Create local catalog schema tables if they do not exist."""
         with self._get_connection() as conn:
             conn.executescript(
                 """
@@ -84,63 +76,17 @@ class SQLiteCatalogRepository(BaseCatalogRepository):
                 );
                 """
             )
-            # Check if seed data is needed
-            cur = conn.cursor()
-            cur.execute("SELECT COUNT(*) FROM years")
-            if cur.fetchone()[0] == 0:
-                self._seed_default_data(conn)
-
-    def _seed_default_data(self, conn: sqlite3.Connection) -> None:
-        """Insert default demonstration catalog and populate local cache."""
-        for yr in SEED_YEARS:
-            conn.execute(
-                "INSERT INTO years (id, year_number, display_name) VALUES (?, ?, ?)",
-                (yr["id"], yr["year_number"], yr["display_name"]),
-            )
-
-        for sem in SEED_SEMESTERS:
-            conn.execute(
-                "INSERT INTO semesters (id, year_id, semester_number, display_name) VALUES (?, ?, ?, ?)",
-                (sem["id"], sem["year_id"], sem["semester_number"], sem["display_name"]),
-            )
-
-        for sub in SEED_SUBJECTS:
-            conn.execute(
-                "INSERT INTO subjects (id, semester_id, subject_code, subject_name) VALUES (?, ?, ?, ?)",
-                (sub["id"], sub["semester_id"], sub["subject_code"], sub["subject_name"]),
-            )
-
-        config.cache_dir.mkdir(parents=True, exist_ok=True)
-        for exp in SEED_EXPERIMENTS:
-            conn.execute(
-                """INSERT INTO experiments
-                (id, subject_id, experiment_number, title, description)
-                VALUES (?, ?, ?, ?, ?)""",
-                (exp["id"], exp["subject_id"], exp["experiment_number"], exp["title"], exp["description"]),
-            )
-
-            filename = exp["filename"]
-            sha = get_demo_hash(filename)
-            conn.execute(
-                """INSERT INTO experiment_versions
-                (id, experiment_id, version_number, storage_path, filename, sha256)
-                VALUES (?, ?, ?, ?, ?, ?)""",
-                (f"ver-{exp['id']}", exp["id"], 1, f"programs/{filename}", filename, sha),
-            )
-
-            # Pre-populate demo file in cache for seamless offline first run
-            cached_file = config.cache_dir / filename
-            if not cached_file.exists():
-                cached_file.write_text(DEMO_PROGRAMS.get(filename, ""), encoding="utf-8")
-
-        conn.commit()
 
     def get_years(self) -> list[Year]:
+        """Retrieve all configured academic years ordered by year_number."""
         with self._get_connection() as conn:
-            rows = conn.execute("SELECT id, year_number, display_name FROM years ORDER BY year_number ASC").fetchall()
+            rows = conn.execute(
+                "SELECT id, year_number, display_name FROM years ORDER BY year_number ASC"
+            ).fetchall()
             return [Year(**dict(r)) for r in rows]
 
     def get_subjects_by_year(self, year_number: int) -> list[Subject]:
+        """Retrieve active subjects across both semesters of the given academic year."""
         with self._get_connection() as conn:
             query = """
                 SELECT s.id, s.semester_id, s.subject_code, s.subject_name, s.is_active,
@@ -155,13 +101,19 @@ class SQLiteCatalogRepository(BaseCatalogRepository):
             return [Subject(**dict(r)) for r in rows]
 
     def get_experiments_by_subject(self, subject_id: str) -> list[Experiment]:
+        """Retrieve published experiments for a given subject with their latest version."""
         with self._get_connection() as conn:
             query = """
                 SELECT e.id, e.subject_id, e.experiment_number, e.title, e.description, e.is_published,
                        v.id as v_id, v.version_number as v_version, v.storage_path as v_storage,
                        v.filename as v_filename, v.sha256 as v_sha
                 FROM experiments e
-                LEFT JOIN experiment_versions v ON e.id = v.experiment_id
+                LEFT JOIN experiment_versions v ON v.id = (
+                    SELECT ev.id FROM experiment_versions ev
+                    WHERE ev.experiment_id = e.id
+                    ORDER BY ev.version_number DESC
+                    LIMIT 1
+                )
                 WHERE e.subject_id = ? AND e.is_published = 1
                 ORDER BY e.experiment_number ASC
             """
@@ -192,13 +144,14 @@ class SQLiteCatalogRepository(BaseCatalogRepository):
             return experiments
 
     def get_experiment_by_index(self, subject_id: str, index: int) -> Optional[Experiment]:
-        experiments = self.get_experiments_by_subject(subject_id)
-        for exp in experiments:
+        """Retrieve a specific experiment by its subject-scoped index."""
+        for exp in self.get_experiments_by_subject(subject_id):
             if exp.experiment_number == index:
                 return exp
         return None
 
     def get_latest_version(self, experiment_id: str) -> Optional[ExperimentVersion]:
+        """Retrieve the highest version record for an experiment."""
         with self._get_connection() as conn:
             row = conn.execute(
                 """SELECT id, experiment_id, version_number, storage_path, filename, sha256
@@ -207,6 +160,4 @@ class SQLiteCatalogRepository(BaseCatalogRepository):
                 ORDER BY version_number DESC LIMIT 1""",
                 (experiment_id,),
             ).fetchone()
-            if row:
-                return ExperimentVersion(**dict(row))
-            return None
+            return ExperimentVersion(**dict(row)) if row else None

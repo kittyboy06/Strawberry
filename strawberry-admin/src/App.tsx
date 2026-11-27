@@ -1,8 +1,15 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import type { Session } from '@supabase/supabase-js';
 import type { Year, Semester, Subject, Experiment, ExperimentVersion } from './types';
-import { supabase, isSupabaseConfigured } from './lib/supabase';
+import {
+  supabase,
+  isSupabaseConfigured,
+  formatSupabaseError,
+} from './lib/supabase';
 import { calculateSHA256 } from './lib/crypto';
 import { UploadModal } from './components/UploadModal';
+import { VscWorkbenchModal } from './components/VscWorkbenchModal';
+import { LoginScreen } from './components/LoginScreen';
 import strawberryLogo from './assets/strawberry-logo.png';
 import strawberryBranch from './assets/strawberry-branch.png';
 import strawberryBottom from './assets/strawberry-bottom.png';
@@ -33,8 +40,8 @@ import {
   Database,
   Download,
   Edit3,
-  Sparkles,
-  Hash
+  LogOut,
+  ShieldCheck
 } from 'lucide-react';
 
 interface RecentItem {
@@ -47,6 +54,10 @@ interface RecentItem {
 }
 
 export const App: React.FC = () => {
+  // Supabase Auth Session State
+  const [session, setSession] = useState<Session | null>(null);
+  const [isAuthLoading, setIsAuthLoading] = useState<boolean>(() => isSupabaseConfigured && Boolean(supabase));
+
   // Navigation active tab
   const [activeTab, setActiveTab] = useState<
     'dashboard' | 'programs' | 'subjects' | 'semesters' | 'years' | 'versions' | 'analytics' | 'settings'
@@ -86,6 +97,7 @@ if __name__ == '__main__':
     main()
 `);
   const [newExpSha, setNewExpSha] = useState<string>('');
+  const [newExpError, setNewExpError] = useState<string | null>(null);
   const [isSubmittingProgram, setIsSubmittingProgram] = useState<boolean>(false);
 
   const [newSubCode, setNewSubCode] = useState<string>('');
@@ -93,7 +105,6 @@ if __name__ == '__main__':
   const [newSubSemId, setNewSubSemId] = useState<string>('');
 
   // Settings & Filter State
-  const [showApiKey, setShowApiKey] = useState<boolean>(false);
   const [pingLatency, setPingLatency] = useState<string | null>(null);
   const [semesterTermFilter, setSemesterTermFilter] = useState<'all' | 'odd' | 'even'>('all');
 
@@ -211,9 +222,38 @@ if __name__ == '__main__':
   }, []);
 
   useEffect(() => {
+    if (!isSupabaseConfigured || !supabase) {
+      return;
+    }
+
+    let isMounted = true;
+    supabase.auth.getSession().then(({ data }) => {
+      if (isMounted) {
+        setSession(data.session ?? null);
+        setIsAuthLoading(false);
+      }
+    });
+
+    const { data: authListener } = supabase.auth.onAuthStateChange((_event, nextSession) => {
+      if (isMounted) {
+        setSession(nextSession);
+        setIsAuthLoading(false);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+      authListener.subscription.unsubscribe();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (isSupabaseConfigured && !session) {
+      return;
+    }
     fetchStructure();
     fetchCatalog();
-  }, [fetchStructure, fetchCatalog]);
+  }, [session, fetchStructure, fetchCatalog]);
 
   // Load code preview when inspectExp changes
   useEffect(() => {
@@ -265,13 +305,14 @@ if __name__ == '__main__':
   }, [newExpCode]);
 
   // Create Program Handler (Author and publish code directly in webpage)
-  const handleCreateProgram = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleCreateProgram = async (e?: React.FormEvent) => {
+    e?.preventDefault();
     if (!newExpTitle.trim() || !newExpSubId || !supabase) {
-      alert('Please enter program title and select a subject.');
+      setNewExpError('Please enter a Program Title and select a Target Subject in the Explorer sidebar.');
       return;
     }
 
+    setNewExpError(null);
     setIsSubmittingProgram(true);
     try {
       const subjectExps = experiments.filter((exp) => exp.subject_id === newExpSubId);
@@ -337,10 +378,11 @@ if __name__ == '__main__':
     main()
 `);
       setNewExpFilename('main.py');
+      setNewExpError(null);
       setIsAddProgramOpen(false);
       await fetchCatalog();
-    } catch (err: any) {
-      alert(`Failed to add program: ${err.message}`);
+    } catch (err: unknown) {
+      setNewExpError(`Failed to add program: ${formatSupabaseError(err, 'Unknown error')}`);
     } finally {
       setIsSubmittingProgram(false);
     }
@@ -368,8 +410,8 @@ if __name__ == '__main__':
       setNewSubName('');
       setIsAddSubjectOpen(false);
       await fetchCatalog();
-    } catch (err: any) {
-      alert(`Failed to create subject: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Failed to create subject: ${formatSupabaseError(err, 'Unknown error')}`);
     }
   };
 
@@ -383,9 +425,15 @@ if __name__ == '__main__':
       if (error) throw error;
       if (inspectExp?.id === expId) setInspectExp(null);
       await fetchCatalog();
-    } catch (err: any) {
-      alert(`Deletion failed: ${err.message}`);
+    } catch (err: unknown) {
+      alert(`Deletion failed: ${formatSupabaseError(err, 'Unknown error')}`);
     }
+  };
+
+  const handleSignOut = async () => {
+    if (!supabase) return;
+    await supabase.auth.signOut();
+    setSession(null);
   };
 
   // Export Course Manifest
@@ -442,11 +490,6 @@ if __name__ == '__main__':
     }
   };
 
-  const copyToClipboard = (text: string) => {
-    navigator.clipboard.writeText(text);
-    alert('Copied to clipboard!');
-  };
-
   // Recent Programs Table Data (live from Supabase database)
   const recentList: RecentItem[] = experiments.slice(0, 5).map((exp) => {
     const sub = subjects.find((s) => s.id === exp.subject_id);
@@ -479,6 +522,22 @@ if __name__ == '__main__':
       (sub?.subject_code || '').toLowerCase().includes(q)
     );
   });
+
+  // Auth Gate: Hold render until session resolves, then enforce faculty login when Supabase is configured
+  if (isSupabaseConfigured && isAuthLoading) {
+    return (
+      <div className="min-h-screen w-full flex items-center justify-center bg-gradient-to-b from-[#FDEBEC] via-[#FDF1F2] to-[#FEF6F5]">
+        <div className="bg-white border border-[#F5E8EB] rounded-2xl px-6 py-4 shadow-sm flex items-center gap-3 text-xs text-[#4B3840]">
+          <RotateCw className="w-4 h-4 text-[#BE123C] animate-spin" />
+          <span>Verifying Supabase Auth session...</span>
+        </div>
+      </div>
+    );
+  }
+
+  if (isSupabaseConfigured && !session) {
+    return <LoginScreen />;
+  }
 
   return (
     <div className="min-h-screen bg-transparent text-[#2E1E24] flex font-sans antialiased selection:bg-[#FCE7EC] selection:text-[#9F1239]">
@@ -654,9 +713,24 @@ if __name__ == '__main__':
               <span className="w-2 h-2 rounded-full bg-[#E11D48] absolute top-2 right-2 border border-white" />
             </button>
 
-            {/* User Avatar */}
-            <div className="w-9 h-9 rounded-full bg-[#FB7185] text-white font-bold flex items-center justify-center text-sm shadow-xs border border-white">
-              A
+            {/* User Avatar & Sign Out */}
+            <div className="flex items-center gap-2">
+              <div
+                title="Faculty Administrator"
+                className="w-9 h-9 rounded-full bg-[#FB7185] text-white font-bold flex items-center justify-center text-sm shadow-xs border border-white"
+              >
+                A
+              </div>
+              {isSupabaseConfigured && session && (
+                <button
+                  onClick={handleSignOut}
+                  title="Sign out of Faculty Account"
+                  className="hidden md:flex items-center gap-1.5 bg-white hover:bg-[#FFF0F3] border border-[#F2DEE3] text-[#4B3840] hover:text-[#BE123C] px-3 py-1.5 rounded-full text-[11px] font-medium shadow-xs transition-colors cursor-pointer"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>Sign Out</span>
+                </button>
+              )}
             </div>
           </div>
         </header>
@@ -1709,40 +1783,45 @@ if __name__ == '__main__':
                   </div>
 
                   <div className="space-y-3 text-xs">
-                    <div>
-                      <label className="text-[11px] font-medium text-[#4B3840] block mb-1">Project REST Endpoint</label>
-                      <div className="bg-[#FAF3F5] border border-[#F2DEE3] p-2.5 rounded-xl font-mono text-[#2E1E24] flex items-center justify-between">
-                        <span className="truncate">https://yfdnrubsdatznakqfhde.supabase.co</span>
-                        <button
-                          onClick={() => copyToClipboard('https://yfdnrubsdatznakqfhde.supabase.co')}
-                          className="text-[#BE123C] hover:underline text-[11px] font-sans font-semibold ml-2 cursor-pointer"
-                        >
-                          Copy
-                        </button>
-                      </div>
+                    <div className="flex justify-between items-center py-1 border-b border-[#FDF0F3]">
+                      <span className="text-[#4B3840]">Backend Connection</span>
+                      <span
+                        className={`font-mono px-2 py-0.5 rounded-full text-[11px] border ${
+                          isSupabaseConfigured
+                            ? 'text-[#059669] bg-[#ECFDF5] border-[#A7F3D0]'
+                            : 'text-[#B45309] bg-[#FFFBEB] border-[#FDE68A]'
+                        }`}
+                      >
+                        {isSupabaseConfigured ? 'Connected (Configured via .env)' : 'Not Configured'}
+                      </span>
                     </div>
 
-                    <div>
-                      <label className="text-[11px] font-medium text-[#4B3840] block mb-1">Publishable Client Key</label>
-                      <div className="bg-[#FAF3F5] border border-[#F2DEE3] p-2.5 rounded-xl font-mono text-[#2E1E24] flex items-center justify-between">
-                        <span className="truncate">
-                          {showApiKey
-                            ? 'sb_publishable_KXQJiiutcoFWfeyGLhoHag_S8F9YiRL'
-                            : 'sb_publishable_••••••••••••••••••••••••'}
-                        </span>
-                        <button
-                          onClick={() => setShowApiKey(!showApiKey)}
-                          className="text-[#BE123C] hover:underline text-[11px] font-sans font-semibold ml-2 cursor-pointer"
-                        >
-                          {showApiKey ? 'Hide' : 'Reveal'}
-                        </button>
-                      </div>
+                    <div className="flex justify-between items-center py-1 border-b border-[#FDF0F3]">
+                      <span className="text-[#4B3840]">Client Credentials</span>
+                      <span className="font-mono text-[#2E1E24]">
+                        {isSupabaseConfigured ? 'Loaded from Environment (Redacted)' : 'Missing'}
+                      </span>
                     </div>
 
-                    <div className="pt-2 flex justify-between items-center text-[11px] text-[#6B7280]">
-                      <span>Connection Engine:</span>
-                      <span className="font-mono text-[#059669] font-semibold">PostgreSQL 15 Live</span>
+                    <div className="pt-1 flex justify-between items-center text-[11px] text-[#6B7280]">
+                      <span>Authenticated Faculty Session:</span>
+                      <span className="font-mono text-[#059669] font-semibold flex items-center gap-1">
+                        <ShieldCheck className="w-3.5 h-3.5" />
+                        {isSupabaseConfigured && session ? 'Verified Faculty Session' : 'Offline Dev'}
+                      </span>
                     </div>
+
+                    {isSupabaseConfigured && session && (
+                      <div className="pt-1">
+                        <button
+                          onClick={handleSignOut}
+                          className="w-full py-2 rounded-xl text-xs font-semibold text-[#991B1B] bg-[#FEF2F2] hover:bg-[#FEE2E2] border border-[#FCA5A5] transition-colors cursor-pointer flex items-center justify-center gap-1.5"
+                        >
+                          <LogOut className="w-3.5 h-3.5" />
+                          <span>Sign Out of Faculty Account</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -1795,313 +1874,47 @@ if __name__ == '__main__':
 
       {/* 4. MODALS */}
 
-      {/* Add Program Modal (Direct In-Webpage Authoring) */}
+      {/* Add Program Modal (VS Code Workbench Authoring) */}
       {isAddProgramOpen && (
-        <div className="fixed inset-0 z-50 bg-[#2E1E24]/50 backdrop-blur-xs flex items-center justify-center p-3 sm:p-6 overflow-y-auto">
-          <form
-            onSubmit={handleCreateProgram}
-            className="bg-white border border-[#F5E8EB] rounded-2xl w-full max-w-2xl max-h-[92vh] overflow-y-auto p-6 space-y-4 shadow-2xl my-auto"
-          >
-            <div className="flex items-center justify-between border-b border-[#F5E8EB] pb-3">
-              <div className="flex items-center gap-2.5">
-                <div className="w-7 h-7 rounded-xl bg-[#FDE8EC] text-[#BE123C] flex items-center justify-center">
-                  <Code2 className="w-4 h-4" />
-                </div>
-                <div>
-                  <h3 className="text-base font-serif font-bold text-[#2E1E24]">
-                    Add Laboratory Program & Author Code
-                  </h3>
-                  <p className="text-[11px] text-[#8C6D76]">
-                    Register the experiment and write source code directly in your browser.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={() => setIsAddProgramOpen(false)}
-                className="text-[#8C6D76] hover:text-[#2E1E24] p-1.5 rounded-full hover:bg-[#FDF0F3] transition-colors cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-3.5 text-xs">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="text-xs font-medium text-[#4B3840] block mb-1">Target Subject *</label>
-                  <select
-                    value={newExpSubId}
-                    onChange={(e) => setNewExpSubId(e.target.value)}
-                    className="w-full bg-[#FAF3F5] border border-[#F2DEE3] rounded-xl px-3 py-2 text-xs text-[#2E1E24] focus:outline-none focus:border-[#BE123C] cursor-pointer"
-                    required
-                  >
-                    <option value="">Select Course...</option>
-                    {subjects.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.subject_code} — {s.subject_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="text-xs font-medium text-[#4B3840] block mb-1">Program Title *</label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Socket Programming"
-                    value={newExpTitle}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      setNewExpTitle(val);
-                      const slug = val
-                        .toLowerCase()
-                        .replace(/[^a-z0-9]+/g, '_')
-                        .replace(/^_+|_+$/g, '');
-                      if (slug) {
-                        const currentExt = newExpFilename.includes('.')
-                          ? newExpFilename.substring(newExpFilename.lastIndexOf('.'))
-                          : '.py';
-                        setNewExpFilename(`${slug}${currentExt}`);
-                      }
-                    }}
-                    className="w-full bg-[#FAF3F5] border border-[#F2DEE3] rounded-xl px-3 py-2 text-xs text-[#2E1E24] focus:outline-none focus:border-[#BE123C]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label className="text-xs font-medium text-[#4B3840] block mb-1">Brief Description</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Client-server echo socket implementation"
-                  value={newExpDesc}
-                  onChange={(e) => setNewExpDesc(e.target.value)}
-                  className="w-full bg-[#FAF3F5] border border-[#F2DEE3] rounded-xl px-3 py-2 text-xs text-[#2E1E24] focus:outline-none focus:border-[#BE123C]"
-                />
-              </div>
-
-              {/* Direct In-Webpage Authoring Toggle */}
-              <div className="pt-1">
-                <label className="flex items-center gap-2.5 cursor-pointer p-3 bg-[#FAF3F5] hover:bg-[#FDF0F3] border border-[#F2DEE3] rounded-xl transition-colors">
-                  <input
-                    type="checkbox"
-                    checked={includeInitialCode}
-                    onChange={(e) => setIncludeInitialCode(e.target.checked)}
-                    className="w-4 h-4 text-[#BE123C] rounded border-[#F2DEE3] focus:ring-[#BE123C] cursor-pointer"
-                  />
-                  <div className="flex-1">
-                    <span className="text-xs font-semibold text-[#2E1E24] block">
-                      Write program source code directly in webpage (Recommended)
-                    </span>
-                    <span className="text-[11px] text-[#8C6D76] block">
-                      Instantly computes SHA-256 and deploys v1.0 directly to the live storage bucket.
-                    </span>
-                  </div>
-                </label>
-              </div>
-
-              {/* Code Authoring Console */}
-              {includeInitialCode && (
-                <div className="space-y-3 pt-1">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[#FFF9FA] border border-[#F5E8EB] p-2.5 rounded-xl">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[11px] font-medium text-[#4B3840]">Filename:</span>
-                      <input
-                        type="text"
-                        value={newExpFilename}
-                        onChange={(e) => setNewExpFilename(e.target.value)}
-                        className="bg-white border border-[#E5D5DA] rounded-lg px-2.5 py-1 text-xs font-mono text-[#2E1E24] focus:outline-none focus:border-[#BE123C]"
-                      />
-                      <div className="flex items-center gap-1">
-                        {['.py', '.c', '.cpp', '.java', '.sql'].map((ext) => (
-                          <button
-                            key={ext}
-                            type="button"
-                            onClick={() => {
-                              const base = newExpFilename.includes('.')
-                                ? newExpFilename.substring(0, newExpFilename.lastIndexOf('.'))
-                                : newExpFilename;
-                              setNewExpFilename(`${base || 'program'}${ext}`);
-                            }}
-                            className={`text-[10px] font-mono px-1.5 py-0.5 rounded border transition-colors cursor-pointer ${
-                              newExpFilename.endsWith(ext)
-                                ? 'bg-[#BE123C] text-white border-[#BE123C]'
-                                : 'bg-white text-[#4B3840] border-[#E5D5DA] hover:border-[#BE123C]'
-                            }`}
-                          >
-                            {ext}
-                          </button>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-[#BE123C]" />
-                      <span className="text-[11px] text-[#8C6D76]">Boilerplate:</span>
-                      <select
-                        onChange={(e) => {
-                          const val = e.target.value;
-                          if (val === 'python_socket') {
-                            setNewExpFilename('socket_server.py');
-                            setNewExpCode(`# TCP Echo Server - Socket Programming
-import socket
-
-HOST = '127.0.0.1'
-PORT = 65432
-
-def start_server():
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
-        s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-        s.bind((HOST, PORT))
-        s.listen()
-        print(f"[*] Server listening on {HOST}:{PORT}...")
-        conn, addr = s.accept()
-        with conn:
-            print(f"[+] Connected by {addr}")
-            while True:
-                data = conn.recv(1024)
-                if not data:
-                    break
-                conn.sendall(data)
-
-if __name__ == '__main__':
-    start_server()
-`);
-                          } else if (val === 'c_tcp') {
-                            setNewExpFilename('tcp_client.c');
-                            setNewExpCode(`// TCP Echo Client in C
-#include <stdio.h>
-#include <stdlib.h>
-#include <string.h>
-#include <unistd.h>
-#include <arpa/inet.h>
-
-#define PORT 65432
-
-int main() {
-    int sock = 0;
-    struct sockaddr_in serv_addr;
-    char buffer[1024] = {0};
-
-    if ((sock = socket(AF_INET, SOCK_STREAM, 0)) < 0) {
-        perror("Socket creation error");
-        return -1;
-    }
-
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(PORT);
-
-    if (connect(sock, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        perror("Connection Failed");
-        return -1;
-    }
-
-    printf("[+] Connected successfully\\n");
-    close(sock);
-    return 0;
-}
-`);
-                          } else if (val === 'sql_schema') {
-                            setNewExpFilename('database_lab.sql');
-                            setNewExpCode(`-- Laboratory Schema
-CREATE TABLE IF NOT EXISTS student_experiments (
-    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    student_roll VARCHAR(20) NOT NULL,
-    title VARCHAR(100) NOT NULL,
-    status VARCHAR(20) DEFAULT 'VERIFIED',
-    created_at TIMESTAMPTZ DEFAULT NOW()
-);
-`);
-                          }
-                        }}
-                        defaultValue=""
-                        className="bg-white border border-[#E5D5DA] rounded-lg px-2 py-1 text-[11px] text-[#2E1E24] focus:outline-none focus:border-[#BE123C] cursor-pointer"
-                      >
-                        <option value="" disabled>Presets...</option>
-                        <option value="python_socket">Python Socket</option>
-                        <option value="c_tcp">C Client</option>
-                        <option value="sql_schema">SQL Table</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  {/* Web Textarea Editor */}
-                  <div className="relative border border-[#3E2B33] rounded-xl overflow-hidden bg-[#181216]">
-                    <div className="bg-[#241A21] px-3 py-1.5 border-b border-[#3E2B33] flex items-center justify-between text-[11px] font-mono text-[#C9BAC2]">
-                      <div className="flex items-center gap-1.5">
-                        <FileCode className="w-3 h-3 text-[#BE123C]" />
-                        <span>{newExpFilename}</span>
-                      </div>
-                      <span>{newExpCode.split('\n').length} lines</span>
-                    </div>
-                    <textarea
-                      value={newExpCode}
-                      onChange={(e) => setNewExpCode(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === 'Tab') {
-                          e.preventDefault();
-                          const target = e.currentTarget;
-                          const start = target.selectionStart;
-                          const end = target.selectionEnd;
-                          const spaces = '    ';
-                          const val = newExpCode.substring(0, start) + spaces + newExpCode.substring(end);
-                          setNewExpCode(val);
-                          setTimeout(() => {
-                            target.selectionStart = target.selectionEnd = start + spaces.length;
-                          }, 0);
-                        }
-                      }}
-                      placeholder="# Type or paste program source code directly in this editor..."
-                      spellCheck={false}
-                      className="w-full h-44 p-3.5 bg-transparent text-[#FDEBED] resize-none focus:outline-none font-mono text-xs leading-5 selection:bg-[#BE123C]/50"
-                    />
-                  </div>
-
-                  {/* Live SHA-256 Digest */}
-                  <div className="bg-[#FFF9FA] border border-[#F5E8EB] p-2.5 rounded-xl flex items-center justify-between font-mono text-xs">
-                    <span className="text-[#8C6D76] flex items-center gap-1.5 font-sans text-[11px]">
-                      <Hash className="w-3.5 h-3.5 text-[#BE123C]" />
-                      <span>Live SHA-256 Digest:</span>
-                    </span>
-                    <span className="text-[#BE123C] font-mono text-[11px] truncate max-w-[260px]">
-                      {newExpSha || 'Type code to compute...'}
-                    </span>
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div className="flex justify-end gap-2.5 pt-3 border-t border-[#F5E8EB]">
-              <button
-                type="button"
-                onClick={() => setIsAddProgramOpen(false)}
-                className="px-4 py-2 text-xs font-medium text-[#6B7280] hover:text-[#2E1E24] cursor-pointer"
-                disabled={isSubmittingProgram}
-              >
-                Cancel
-              </button>
-              <button
-                type="submit"
-                disabled={isSubmittingProgram}
-                className={`px-5 py-2 rounded-xl text-xs font-semibold shadow-xs flex items-center gap-1.5 transition-all ${
-                  isSubmittingProgram
-                    ? 'bg-[#F5E8EB] text-[#A89CA0] cursor-not-allowed'
-                    : 'bg-[#BE123C] hover:bg-[#9F1239] text-white cursor-pointer'
-                }`}
-              >
-                {isSubmittingProgram ? (
-                  <span>Publishing to Fleet...</span>
-                ) : (
-                  <>
-                    <Check className="w-3.5 h-3.5" />
-                    <span>{includeInitialCode ? 'Save & Publish Program (v1.0)' : 'Save Program Placeholder'}</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </form>
-        </div>
+        <VscWorkbenchModal
+          mode="create"
+          windowTitle="Strawberry IDE — New Laboratory Program"
+          submitLabel={includeInitialCode ? 'Save & Publish (v1.0)' : 'Save Program'}
+          isSubmitting={isSubmittingProgram}
+          error={newExpError}
+          subjects={subjects}
+          subjectId={newExpSubId}
+          onSubjectIdChange={setNewExpSubId}
+          programTitle={newExpTitle}
+          onProgramTitleChange={(val) => {
+            setNewExpTitle(val);
+            const slug = val
+              .toLowerCase()
+              .replace(/[^a-z0-9]+/g, '_')
+              .replace(/^_+|_+$/g, '');
+            if (slug) {
+              const currentExt = newExpFilename.includes('.')
+                ? newExpFilename.substring(newExpFilename.lastIndexOf('.'))
+                : '.py';
+              setNewExpFilename(`${slug}${currentExt}`);
+            }
+          }}
+          programDescription={newExpDesc}
+          onProgramDescriptionChange={setNewExpDesc}
+          includeCode={includeInitialCode}
+          onIncludeCodeChange={setIncludeInitialCode}
+          filename={newExpFilename}
+          onFilenameChange={setNewExpFilename}
+          code={newExpCode}
+          onCodeChange={setNewExpCode}
+          sha256={newExpSha}
+          versionLabel={includeInitialCode ? 'v1.0' : 'draft'}
+          onClose={() => {
+            setNewExpError(null);
+            setIsAddProgramOpen(false);
+          }}
+          onSubmit={handleCreateProgram}
+        />
       )}
 
       {/* Add Subject Modal */}
@@ -2139,7 +1952,7 @@ CREATE TABLE IF NOT EXISTS student_experiments (
                 <label className="text-xs font-medium text-[#4B3840] block mb-1">Subject Name</label>
                 <input
                   type="text"
-                  placeholder="e.g. Computer Networks"
+                  placeholder="e.g. Data Structures"
                   value={newSubName}
                   onChange={(e) => setNewSubName(e.target.value)}
                   className="w-full bg-[#FAF3F5] border border-[#F2DEE3] rounded-xl px-3 py-2 text-xs text-[#2E1E24] focus:outline-none focus:border-[#BE123C]"
@@ -2184,10 +1997,11 @@ CREATE TABLE IF NOT EXISTS student_experiments (
         </div>
       )}
 
-      {/* Upload File Modal */}
+      {/* Upload / Edit Code Workbench Modal */}
       {uploadModalExp && (
         <UploadModal
           experiment={uploadModalExp}
+          subjectCode={subjects.find((s) => s.id === uploadModalExp.subject_id)?.subject_code}
           onClose={() => setUploadModalExp(null)}
           onUploadSuccess={async () => {
             await fetchCatalog();

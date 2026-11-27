@@ -60,5 +60,17 @@ class CacheService:
         temp_path.replace(target_path)
         return target_path
 
+    def prune_orphans(self, active_filenames: set[str]) -> int:
+        """Removes cached files that are no longer referenced by any active version."""
+        if not self.cache_dir.exists():
+            return 0
+
+        removed = 0
+        for item in self.cache_dir.iterdir():
+            if item.is_file() and item.name not in active_filenames:
+                item.unlink(missing_ok=True)
+                removed += 1
+        return removed
+
 
 cache_service = CacheService()

@@ -39,3 +39,21 @@ def test_config_legacy_anon_key_backward_compatibility(monkeypatch):
     cfg = StrawberryConfig()
     assert cfg.supabase_publishable_key == "legacy_jwt_anon_key"
     assert cfg.supabase_anon_key == "legacy_jwt_anon_key"
+
+
+def test_config_defaults_empty_without_env(monkeypatch):
+    for var in (
+        "STRAWBERRY_SUPABASE_URL",
+        "VITE_SUPABASE_URL",
+        "STRAWBERRY_SUPABASE_PUBLISHABLE_KEY",
+        "VITE_SUPABASE_PUBLISHABLE_KEY",
+        "STRAWBERRY_SUPABASE_ANON_KEY",
+        "VITE_SUPABASE_ANON_KEY",
+        "STRAWBERRY_SUPABASE_SECRET_KEY",
+    ):
+        monkeypatch.delenv(var, raising=False)
+
+    cfg = StrawberryConfig()
+    assert cfg.base_supabase_url == ""
+    assert cfg.supabase_publishable_key == ""
+    assert cfg.supabase_secret_key == ""

@@ -1,6 +1,7 @@
 # Agents & Local Environment
 .agents/
 seed/
+.vercel/
 
 # Python
 __pycache__/

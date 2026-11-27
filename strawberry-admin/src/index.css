@@ -38,3 +38,18 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: #E5C2C9;
 }
+
+.vsc-editor-textarea::selection {
+  color: transparent;
+  background: rgba(38, 79, 120, 0.7);
+}
+
+.vsc-editor-textarea::-webkit-scrollbar-thumb,
+.vsc-editor-scroll::-webkit-scrollbar-thumb {
+  background: #424242;
+}
+
+.vsc-editor-textarea::-webkit-scrollbar-thumb:hover,
+.vsc-editor-scroll::-webkit-scrollbar-thumb:hover {
+  background: #4F4F4F;
+}
