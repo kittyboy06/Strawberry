@@ -1,0 +1,38 @@
+name: Bug Report
+description: Report a defect in Strawberry CLI, Admin Portal, or Windows Installer
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Strawberry CLI / TUI
+        - Windows Installer (Strawberry_Setup.exe)
+        - Admin Web Portal (strawberry-admin)
+        - Supabase Schema / Sync
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Version
+      placeholder: v0.1.0
+  - type: textarea
+    id: description
+    attributes:
+      label: What happened?
+      description: Clear description of the bug, error messages, or unexpected behavior.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      placeholder: |
+        1. Run `strawberry`
+        2. Select year / semester
+        3. See error
+    validations:
+      required: true

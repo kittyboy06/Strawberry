@@ -1,0 +1,19 @@
+name: Feature Request
+description: Suggest an improvement or new capability for Strawberry
+title: "[Feature]: "
+labels: ["enhancement"]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or Motivation
+      description: What problem does this solve?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed Solution
+      description: Describe the behavior or UX you would like to see.
+    validations:
+      required: true

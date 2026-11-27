@@ -6,8 +6,8 @@ This guide explains how faculty and laboratory coordinators manage curriculum ca
 
 ## 1. Supabase Setup & Faculty Authentication
 
-1. **Create Tables & RLS Policies:** Execute [supabase/migrations/001_initial_schema.sql](file:///e:/Projects/Works/Strawberry/supabase/migrations/001_initial_schema.sql) inside the Supabase SQL Editor.
-2. **Initialize Years & Semesters:** Execute [supabase/seed.sql](file:///e:/Projects/Works/Strawberry/supabase/seed.sql) to populate academic years (`2nd`, `3rd`, `4th Year`) and semesters (`Semester 3`–`8`). No mock subjects or experiments are seeded.
+1. **Create Tables & RLS Policies:** Execute [supabase/migrations/001_initial_schema.sql](../supabase/migrations/001_initial_schema.sql) inside the Supabase SQL Editor.
+2. **Initialize Years & Semesters:** Execute [supabase/seed.sql](../supabase/seed.sql) to populate academic years (`2nd`, `3rd`, `4th Year`) and semesters (`Semester 3`–`8`). No mock subjects or experiments are seeded.
 3. **Provision Faculty Accounts (Critical for RLS):**
    * All database (`subjects`, `experiments`, `experiment_versions`) and `programs` Storage bucket mutations require `TO authenticated`.
    * In the **Supabase Dashboard → Authentication → Providers / Settings**, **disable public user sign-ups** so students cannot register faculty accounts.
@@ -33,9 +33,9 @@ Once signed in via the Admin Login gate:
 ## 3. Hosting the Admin Web App on Vercel
 
 1. Ensure your local root `.env` contains `STRAWBERRY_SUPABASE_URL` and `STRAWBERRY_SUPABASE_PUBLISHABLE_KEY`.
-2. Double-click or run [deploy-admin-vercel.bat](file:///e:/Projects/Works/Strawberry/deploy-admin-vercel.bat) from the repository root:
+2. Double-click or run [deploy-admin-vercel.bat](../deploy-admin-vercel.bat) from the repository root:
    * Validates `npm run build` in `strawberry-admin/`.
-   * Links the Vercel project configured via [vercel.json](file:///e:/Projects/Works/Strawberry/vercel.json).
+   * Links the Vercel project configured via [vercel.json](../vercel.json).
    * Prompts to push **only** public `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel (`STRAWBERRY_SUPABASE_SECRET_KEY` is never sent).
    * Deploys `strawberry-admin` to Vercel production (`vercel deploy --prod`).
 
@@ -44,7 +44,7 @@ Once signed in via the Admin Login gate:
 ## 4. Building Workstation Releases (`Strawberry_Setup.exe`)
 
 1. Ensure [Inno Setup 6](https://jrsoftware.org/isinfo.php) is installed (`winget install JRSoftware.InnoSetup`).
-2. Run [build-release.bat](file:///e:/Projects/Works/Strawberry/build-release.bat) from the repository root:
+2. Run [build-release.bat](../build-release.bat) from the repository root:
    * Runs `uv run pytest -v` inside `strawberry-cli/`.
    * Builds standalone `strawberry-cli/dist/strawberry.exe` via PyInstaller.
    * Stages a temporary gitignored 2-key client `.env` (`STRAWBERRY_SUPABASE_URL` + `STRAWBERRY_SUPABASE_PUBLISHABLE_KEY` only) for bundling into `%LOCALAPPDATA%\Strawberry\.env`, then deletes the staging file after compilation.

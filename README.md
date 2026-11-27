@@ -1,6 +1,11 @@
 # Strawberry 🍓
 > **"Pick your program. Paste your code."**
 
+[![CI](https://github.com/Kittyboy06/Strawberry/actions/workflows/ci.yml/badge.svg)](https://github.com/Kittyboy06/Strawberry/actions/workflows/ci.yml)
+[![Release v0.1.0](https://img.shields.io/badge/release-v0.1.0-c92a42.svg)](https://github.com/Kittyboy06/Strawberry/releases/tag/v0.1.0)
+[![Admin Portal](https://img.shields.io/badge/Admin_Portal-Live_on_Vercel-black.svg)](https://strawberry-cli.vercel.app)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+
 Strawberry is an offline-first laboratory program retrieval system designed specifically for engineering college departments (2nd, 3rd, and 4th-year students). It completely replaces disorganized code distribution channels—such as WhatsApp group messages, scattered Google Drive links, and messy repositories—with a single, ultra-fast Windows command-line utility and a unified faculty admin portal.
 
 With Strawberry, students open their terminal, make three quick selections, and immediately receive verified source code copied directly to their Windows clipboard ready to paste (`CTRL + V`).
@@ -52,9 +57,9 @@ With Strawberry, students open their terminal, make three quick selections, and 
 ---
 
 ## 📚 Additional Guides
-* [Windows Installation & CLI Guide](file:///e:/Projects/Works/Strawberry/docs/installation.md) — Student setup via `Strawberry_Setup.exe`, silent lab deployment, SmartScreen guidance, offline mode, and Windows limitations.
-* [Faculty & Admin Guide](file:///e:/Projects/Works/Strawberry/docs/admin-guide.md) — Supabase Auth setup, curriculum authoring in the VS Code workbench, Vercel deployment, and installer builds.
-* [Architecture Specification](file:///e:/Projects/Works/Strawberry/docs/architecture.md) — Core architectural decisions and data flow.
+* [Windows Installation & CLI Guide](docs/installation.md) — Student setup via `Strawberry_Setup.exe`, silent lab deployment, SmartScreen guidance, offline mode, and Windows limitations.
+* [Faculty & Admin Guide](docs/admin-guide.md) — Supabase Auth setup, curriculum authoring in the VS Code workbench, Vercel deployment, and installer builds.
+* [Architecture Specification](docs/architecture.md) — Core architectural decisions and data flow.
 
 ---
 
@@ -195,8 +200,8 @@ npm run build
 
 1. Create a project at [Supabase](https://supabase.com).
 2. Open the **SQL Editor** in your Supabase dashboard.
-3. Run the schema migration script located at [`supabase/migrations/001_initial_schema.sql`](file:///e:/Projects/Works/Strawberry/supabase/migrations/001_initial_schema.sql).
-4. Run the seed data script located at [`supabase/seed.sql`](file:///e:/Projects/Works/Strawberry/supabase/seed.sql).
+3. Run the schema migration script located at [`supabase/migrations/001_initial_schema.sql`](supabase/migrations/001_initial_schema.sql).
+4. Run the seed data script located at [`supabase/seed.sql`](supabase/seed.sql).
 5. Copy your **Project URL** and **Publishable Key** (`sb_publishable_...`) from `Settings -> API Keys`.
 
 ---
@@ -361,16 +366,14 @@ uv run pytest -v
 
 Expected output:
 ```text
-tests/test_clipboard.py::test_line_endings_normalization PASSED
-tests/test_clipboard.py::test_clipboard_copy PASSED
-tests/test_storage.py::test_sqlite_repository_initialization_and_seed PASSED
-tests/test_storage.py::test_cache_service PASSED
-tests/test_timer.py::test_timer_initial_state PASSED
-tests/test_timer.py::test_timer_countdown_and_bar PASSED
-tests/test_timer.py::test_timer_expiration PASSED
-tests/test_workflow.py::test_end_to_end_lite_workflow PASSED
+tests/test_clipboard.py::test_line_endings_normalization PASSED          [  4%]
+tests/test_clipboard.py::test_clipboard_copy PASSED                      [  9%]
+tests/test_config.py::test_config_publishable_and_secret_keys PASSED     [ 13%]
+...
+tests/test_windows_integration.py::test_standalone_exe_runs_without_python_in_path PASSED [ 95%]
+tests/test_workflow.py::test_end_to_end_lite_workflow PASSED             [100%]
 
-============================== 8 passed in 1.50s ==============================
+============================= 22 passed in 3.94s ==============================
 ```
 
 ---
@@ -378,14 +381,14 @@ tests/test_workflow.py::test_end_to_end_lite_workflow PASSED
 ## 📦 Production Deployment & Windows Packaging
 
 ### Standalone Executable & Windows Installer (`Strawberry_Setup.exe`)
-Run [build-release.bat](file:///e:/Projects/Works/Strawberry/build-release.bat) from the repository root to execute `pytest`, compile `strawberry-cli/dist/strawberry.exe` via PyInstaller, bundle a gitignored 2-key client `.env` (`URL` + `Publishable Key` only), and build `dist/Strawberry_Setup.exe` via [installer/strawberry.iss](file:///e:/Projects/Works/Strawberry/installer/strawberry.iss):
+Run [build-release.bat](build-release.bat) from the repository root to execute `pytest`, compile `strawberry-cli/dist/strawberry.exe` via PyInstaller, bundle a gitignored 2-key client `.env` (`URL` + `Publishable Key` only), and build `dist/Strawberry_Setup.exe` via [installer/strawberry.iss](installer/strawberry.iss):
 1. **Per-User Installation:** Installs into `%LOCALAPPDATA%\Strawberry\bin` with zero administrative UAC prompts.
 2. **Automatic PATH & Client Config:** Adds Strawberry to the current user's `PATH` and places the read-only client `.env` inside `%LOCALAPPDATA%\Strawberry\`.
 3. **Default Background Sync & Startup:** Automatically registers `StrawberryDaemon.vbs` in Windows Startup, performs an initial `sync`, and launches the background sync worker.
 4. **Clean Uninstallation:** Terminates active background processes, unregisters the startup runner, deletes cached `.db`/`.json`/`.env` files, and cleanly removes only Strawberry-owned `PATH` entries.
 
 ### Deploying the Admin Portal on Vercel
-Run [deploy-admin-vercel.bat](file:///e:/Projects/Works/Strawberry/deploy-admin-vercel.bat) from the repository root (configured via [vercel.json](file:///e:/Projects/Works/Strawberry/vercel.json)):
+Run [deploy-admin-vercel.bat](deploy-admin-vercel.bat) from the repository root (configured via [vercel.json](vercel.json)):
 1. Verifies `npm run build` in `strawberry-admin/`.
 2. Links the Vercel project and pushes only `VITE_SUPABASE_URL` and `VITE_SUPABASE_PUBLISHABLE_KEY` to Vercel Project Environment Variables.
 3. Deploys `strawberry-admin` to Vercel production (`vercel deploy --prod`).
@@ -414,4 +417,4 @@ Run [deploy-admin-vercel.bat](file:///e:/Projects/Works/Strawberry/deploy-admin-
 
 ## 📄 License
 
-This project is licensed under the MIT License — see the [LICENSE](file:///e:/Projects/Works/Strawberry/LICENSE) file for details.
+This project is licensed under the MIT License — see the [LICENSE](LICENSE) file for details.
